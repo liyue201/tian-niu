@@ -18,7 +18,7 @@ func main() {
 		panic(err)
 	}
 
-	db, err := server.InitDB("ch10.db")
+	db, err := server.InitDB("test.db")
 	if err != nil {
 		log.Errorf("Failed to initialize database: %v", err)
 		panic(err)

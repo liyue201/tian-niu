@@ -10,9 +10,9 @@ import (
 	"github.com/liyue201/tian-niu/pkg/shared"
 )
 
-const SystemPrompt = `# BabyAgent
+const SystemPrompt = `# Tianniu
 
-You are BabyAgent, a helpful coding assistant.
+You are Tianniu, a helpful coding assistant.
 
 ## Guidelines
 - State intent before tool calls, but NEVER predict or claim results before receiving them.

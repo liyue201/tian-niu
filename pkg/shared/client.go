@@ -9,8 +9,7 @@ func NewLLMClient(modelConf ModelConfig) openai.Client {
 	client := openai.NewClient(
 		option.WithBaseURL(modelConf.BaseURL),
 		option.WithAPIKey(modelConf.ApiKey),
-		option.WithHeader("X-Title", "BabyAgent"),
-		option.WithHeader("HTTP-Referer", "https://github.com/baby-llm/baby-agent"),
+		option.WithHeader("X-Title", "Tianniu"),
 	)
 	return client
 }
