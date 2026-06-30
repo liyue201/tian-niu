@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/liyue201/tian-niu/pkg/db"
 	"path/filepath"
 	"testing"
 	"time"
@@ -28,7 +29,7 @@ func TestRenameConversation_UpdatesTitle(t *testing.T) {
 		t.Fatalf("updated title = %q, want %q", updated.Title, "New Title")
 	}
 
-	var stored Conversation
+	var stored db.Conversation
 	if err := s.db.First(&stored, "conversation_id = ?", created.ConversationID).Error; err != nil {
 		t.Fatalf("load stored conversation: %v", err)
 	}
@@ -49,7 +50,7 @@ func TestDeleteConversation_RemovesConversationAndMessages(t *testing.T) {
 		t.Fatalf("CreateConversation() error = %v", err)
 	}
 
-	if err := s.db.Create(&ChatMessage{
+	if err := s.db.Create(&db.ChatMessage{
 		MessageID:       "msg-1",
 		UserID:          "user_001",
 		ConversationID:  created.ConversationID,
@@ -67,7 +68,7 @@ func TestDeleteConversation_RemovesConversationAndMessages(t *testing.T) {
 	}
 
 	var conversationCount int64
-	if err := s.db.Model(&Conversation{}).
+	if err := s.db.Model(&db.Conversation{}).
 		Where("conversation_id = ?", created.ConversationID).
 		Count(&conversationCount).Error; err != nil {
 		t.Fatalf("count conversations: %v", err)
@@ -77,7 +78,7 @@ func TestDeleteConversation_RemovesConversationAndMessages(t *testing.T) {
 	}
 
 	var messageCount int64
-	if err := s.db.Model(&ChatMessage{}).
+	if err := s.db.Model(&db.ChatMessage{}).
 		Where("conversation_id = ?", created.ConversationID).
 		Count(&messageCount).Error; err != nil {
 		t.Fatalf("count messages: %v", err)
@@ -91,7 +92,7 @@ func newTestServer(t *testing.T) *Server {
 	t.Helper()
 
 	dbPath := filepath.Join(t.TempDir(), "test.db")
-	db, err := InitDB(dbPath)
+	db, err := db.InitDB(dbPath)
 	if err != nil {
 		t.Fatalf("InitDB() error = %v", err)
 	}

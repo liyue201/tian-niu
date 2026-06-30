@@ -68,3 +68,18 @@ type ChatMessageVO struct {
 	CreatedAt       int64            `json:"created_at"`
 	Rounds          []RoundMessageVO `json:"rounds,omitempty"`
 }
+
+// RegisterReq POST /user/register 请求体
+type RegisterReq struct {
+	Username string `json:"username" binding:"required"`
+	Email    string `json:"email"`
+	Password string `json:"password" binding:"required"`
+}
+
+// UserVO 用户信息响应
+type UserVO struct {
+	UserID    string `json:"user_id"`
+	Username  string `json:"username"`
+	Email     string `json:"email"`
+	CreatedAt int64  `json:"created_at"`
+}

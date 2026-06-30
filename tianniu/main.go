@@ -4,6 +4,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/liyue201/tian-niu/pkg/agent"
 	"github.com/liyue201/tian-niu/pkg/agent/tool"
+	"github.com/liyue201/tian-niu/pkg/db"
 	"github.com/liyue201/tian-niu/pkg/server"
 	"github.com/liyue201/tian-niu/pkg/shared"
 	"github.com/liyue201/tian-niu/pkg/shared/log"
@@ -18,7 +19,7 @@ func main() {
 		panic(err)
 	}
 
-	db, err := server.InitDB("test.db")
+	db, err := db.InitDB("test.db")
 	if err != nil {
 		log.Errorf("Failed to initialize database: %v", err)
 		panic(err)

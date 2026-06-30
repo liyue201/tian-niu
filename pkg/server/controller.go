@@ -14,6 +14,7 @@ func NewRouter(s *Server) *gin.Engine {
 	g := gin.Default()
 
 	api := g.Group("/api")
+	api.POST("/user/register", s.register)
 	api.POST("/conversation", s.createConversation)
 	api.GET("/conversation", s.listConversations)
 	api.PATCH("/conversation/:conversation_id", s.renameConversation)
@@ -22,6 +23,23 @@ func NewRouter(s *Server) *gin.Engine {
 	api.GET("/conversation/:conversation_id/message", s.listMessages)
 
 	return g
+}
+
+// POST /user/register
+func (s *Server) register(c *gin.Context) {
+	var req vo.RegisterReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, vo.Err(400, err.Error()))
+		return
+	}
+
+	result, err := s.Register(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, vo.Err(500, err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, vo.OK(result))
 }
 
 // POST /conversation

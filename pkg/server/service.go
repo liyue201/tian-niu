@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/liyue201/tian-niu/pkg/db"
+
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
 	"github.com/liyue201/tian-niu/pkg/agent"
@@ -23,8 +26,35 @@ func NewServer(db *gorm.DB, agent *agent.Agent) *Server {
 	return &Server{db: db, agent: agent}
 }
 
+func (s *Server) Register(req vo.RegisterReq) (vo.UserVO, error) {
+	// 密码哈希
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return vo.UserVO{}, err
+	}
+
+	user := db.User{
+		UserID:       uuid.New().String(),
+		Username:     req.Username,
+		Email:        req.Email,
+		PasswordHash: string(passwordHash),
+		CreatedAt:    time.Now().Unix(),
+	}
+
+	if err := s.db.Create(&user).Error; err != nil {
+		return vo.UserVO{}, err
+	}
+
+	return vo.UserVO{
+		UserID:    user.UserID,
+		Username:  user.Username,
+		Email:     user.Email,
+		CreatedAt: user.CreatedAt,
+	}, nil
+}
+
 func (s *Server) CreateConversation(req vo.CreateConversationReq) (vo.ConversationVO, error) {
-	conv := Conversation{
+	conv := db.Conversation{
 		ConversationID: uuid.New().String(),
 		UserID:         req.UserID,
 		Title:          req.Title,
@@ -42,7 +72,7 @@ func (s *Server) CreateConversation(req vo.CreateConversationReq) (vo.Conversati
 }
 
 func (s *Server) ListConversations(userID string) ([]vo.ConversationVO, error) {
-	var convs []Conversation
+	var convs []db.Conversation
 	query := s.db.Order("created_at desc")
 	if userID != "" {
 		query = query.Where("user_id = ?", userID)
@@ -64,13 +94,13 @@ func (s *Server) ListConversations(userID string) ([]vo.ConversationVO, error) {
 }
 
 func (s *Server) RenameConversation(conversationID string, title string) (vo.ConversationVO, error) {
-	if err := s.db.Model(&Conversation{}).
+	if err := s.db.Model(&db.Conversation{}).
 		Where("conversation_id = ?", conversationID).
 		Update("title", title).Error; err != nil {
 		return vo.ConversationVO{}, err
 	}
 
-	var conv Conversation
+	var conv db.Conversation
 	if err := s.db.First(&conv, "conversation_id = ?", conversationID).Error; err != nil {
 		return vo.ConversationVO{}, err
 	}
@@ -86,17 +116,17 @@ func (s *Server) RenameConversation(conversationID string, title string) (vo.Con
 func (s *Server) DeleteConversation(conversationID string) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("conversation_id = ?", conversationID).
-			Delete(&ChatMessage{}).Error; err != nil {
+			Delete(&db.ChatMessage{}).Error; err != nil {
 			return err
 		}
 
 		return tx.Where("conversation_id = ?", conversationID).
-			Delete(&Conversation{}).Error
+			Delete(&db.Conversation{}).Error
 	})
 }
 
 func (s *Server) ListMessages(conversationID string) ([]vo.ChatMessageVO, error) {
-	var msgs []ChatMessage
+	var msgs []db.ChatMessage
 	if err := s.db.Where("conversation_id = ?", conversationID).
 		Order("created_at asc").Find(&msgs).Error; err != nil {
 		return nil, err
@@ -121,13 +151,13 @@ func (s *Server) ListMessages(conversationID string) ([]vo.ChatMessageVO, error)
 // CreateMessage 验证会话、构建历史、保存消息记录，并启动 agent 流式执行。
 func (s *Server) CreateMessage(ctx context.Context, conversationID string, req vo.CreateMessageReq, voCh chan<- vo.SSEMessageVO) error {
 	// 验证会话存在
-	var conv Conversation
+	var conv db.Conversation
 	if err := s.db.Where("conversation_id = ?", conversationID).First(&conv).Error; err != nil {
 		return err
 	}
 
 	// 从历史消息构建 history
-	var historyMsgs []ChatMessage
+	var historyMsgs []db.ChatMessage
 	if err := s.db.Where("conversation_id = ?", conversationID).
 		Order("created_at asc").Find(&historyMsgs).Error; err != nil {
 		return err
@@ -155,7 +185,7 @@ func (s *Server) CreateMessage(ctx context.Context, conversationID string, req v
 
 	roundsJSON, _ := json.Marshal(result.Rounds)
 	usageJSON, _ := json.Marshal(result.Usage)
-	s.db.Create(&ChatMessage{
+	s.db.Create(&db.ChatMessage{
 		MessageID:       msgID,
 		UserID:          req.UserID,
 		ConversationID:  conversationID,
