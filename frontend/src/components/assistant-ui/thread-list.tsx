@@ -1,6 +1,7 @@
-import { MessageSquarePlus, Pencil, Trash2 } from 'lucide-react'
+import { MessageSquarePlus, Pencil, Trash2, LogOut, ChevronUp, ChevronDown, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import logo from '../../assets/tn.png'
+import { getCurrentUser, clearAuthToken, clearCurrentUser } from '../../api'
 import {
   useAui,
   ThreadListItemPrimitive,
@@ -117,7 +118,130 @@ export default function AssistantThreadList() {
           }}
         </ThreadListPrimitive.Items>
       </ThreadListPrimitive.Root>
+
+      {/* User info and logout menu */}
+      <div
+        style={{
+          padding: '12px',
+          borderTop: '1px solid var(--border)',
+          background: 'var(--sidebar-bg)',
+        }}
+      >
+        <UserMenu />
+      </div>
     </aside>
+  )
+}
+
+function UserMenu() {
+  const [open, setOpen] = useState(false)
+  const user = getCurrentUser()
+
+  const handleLogout = () => {
+    clearAuthToken()
+    clearCurrentUser()
+    setOpen(false)
+    window.location.reload()
+  }
+
+  if (!user) return null
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '8px 10px',
+          background: 'transparent',
+          border: 'none',
+          borderRadius: 8,
+          cursor: 'pointer',
+          color: 'var(--text)',
+          textAlign: 'left',
+        }}
+      >
+        <div
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: '50%',
+            background: 'var(--accent)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff',
+            fontSize: 14,
+          }}
+        >
+          <User size={16} />
+        </div>
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 500,
+              color: 'var(--text)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {user.username}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+            {user.email || 'User'}
+          </div>
+        </div>
+        {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </button>
+
+      {open && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '100%',
+            left: 8,
+            right: 8,
+            marginBottom: 4,
+            background: 'var(--sidebar-bg)',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+            overflow: 'hidden',
+          }}
+        >
+          <button
+            onClick={handleLogout}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '10px 12px',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text)',
+              textAlign: 'left',
+              fontSize: 13,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--panel-bg)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent'
+            }}
+          >
+            <LogOut size={14} />
+            <span>Logout</span>
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
