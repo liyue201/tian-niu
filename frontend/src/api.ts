@@ -1,7 +1,66 @@
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 
-export const USER_ID = 'user_001'
 const BASE = '/api'
+
+// Auth token management
+let authToken: string | null = localStorage.getItem('auth_token')
+
+export function setAuthToken(token: string) {
+  authToken = token
+  localStorage.setItem('auth_token', token)
+}
+
+export function clearAuthToken() {
+  authToken = null
+  localStorage.removeItem('auth_token')
+}
+
+export function getAuthToken() {
+  return authToken
+}
+
+export function isLoggedIn() {
+  return authToken !== null
+}
+
+// Get user info from token
+let currentUser: UserVO | null = null
+
+export function setCurrentUser(user: UserVO) {
+  currentUser = user
+  localStorage.setItem('current_user', JSON.stringify(user))
+}
+
+export function getCurrentUser() {
+  if (!currentUser) {
+    const stored = localStorage.getItem('current_user')
+    if (stored) {
+      try {
+        currentUser = JSON.parse(stored) as UserVO
+      } catch {
+        // ignore
+      }
+    }
+  }
+  return currentUser
+}
+
+export function clearCurrentUser() {
+  currentUser = null
+  localStorage.removeItem('current_user')
+}
+
+export interface UserVO {
+  id: string
+  username: string
+  email?: string
+  created_at: number
+}
+
+export interface LoginRespVO {
+  user: UserVO
+  token: string
+}
 
 interface APIResponse<T> {
   code: number
@@ -80,7 +139,7 @@ export const THREAD_OPERATION_SUPPORT: Record<ThreadOperation, boolean> = {
 }
 
 export async function fetchThreads(): Promise<ConversationVO[]> {
-  const json = await requestJSON<ConversationVO[]>(`${BASE}/conversation?user_id=${USER_ID}`)
+  const json = await requestJSON<ConversationVO[]>(`${BASE}/conversation`)
   return json.data ?? []
 }
 
@@ -88,7 +147,7 @@ export async function createThread(title = 'New Chat'): Promise<ConversationVO> 
   const json = await requestJSON<ConversationVO>(`${BASE}/conversation`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ user_id: USER_ID, title }),
+    body: JSON.stringify({title }),
   })
   if (!json.data) throw new Error('Conversation was not returned by the server')
   return json.data
@@ -142,7 +201,7 @@ export function streamThreadRun({
   fetchEventSource(`${BASE}/conversation/${threadId}/message`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ user_id: USER_ID, query, parent_message_id: parentMessageId ?? '' }),
+    body: JSON.stringify({query, parent_message_id: parentMessageId ?? '' }),
     signal: ctrl.signal,
     onmessage(ev) {
       const event = parseSSEMessage(ev.data)
@@ -197,10 +256,54 @@ export function streamMessage(
 }
 
 async function requestJSON<T>(input: RequestInfo | URL, init?: RequestInit): Promise<APIResponse<T>> {
-  const res = await fetch(input, init)
+  const headers = new Headers(init?.headers)
+  if (authToken) {
+    headers.set('Authorization', `Bearer ${authToken}`)
+  }
+
+  const res = await fetch(input, {
+    ...init,
+    headers,
+  })
+
+  // Handle unauthorized
+  if (res.status === 401) {
+    clearAuthToken()
+    clearCurrentUser()
+    window.dispatchEvent(new Event('auth_required'))
+    throw new Error('Unauthorized')
+  }
+
   const json = await res.json() as APIResponse<T>
   if (json.code !== 0) throw new Error(json.msg)
   return json
+}
+
+// Auth APIs
+export async function login(username: string, password: string): Promise<LoginRespVO> {
+  const json = await fetch(`${BASE}/user/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  }).then(res => res.json()) as APIResponse<LoginRespVO>
+
+  if (json.code !== 0) throw new Error(json.msg)
+  if (!json.data) throw new Error('Login failed')
+
+  return json.data
+}
+
+export async function register(username: string, email: string, password: string): Promise<UserVO> {
+  const json = await fetch(`${BASE}/user/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, email, password }),
+  }).then(res => res.json()) as APIResponse<UserVO>
+
+  if (json.code !== 0) throw new Error(json.msg)
+  if (!json.data) throw new Error('Registration failed')
+
+  return json.data
 }
 
 function unsupportedThreadOperation(

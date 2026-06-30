@@ -1,12 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Sidebar from './components/Sidebar'
 import ChatPanel from './components/ChatPanel'
 import AssistantThread from './components/assistant-ui/thread'
 import AssistantThreadList from './components/assistant-ui/thread-list'
 import { BabyAgentRuntimeProvider } from './components/assistant-ui/runtime-provider'
+import AuthModal from './components/AuthModal'
 import {
   listConversations,
   createConversation,
+  isLoggedIn,
+  getCurrentUser,
   type ConversationVO,
 } from './api'
 
@@ -26,7 +29,7 @@ function LegacyApp() {
     listConversations()
       .then((data) => {
         setConversations(data)
-        if (data.length > 0) setActiveId(data[0].conversation_id)
+        if (data.length > 0) setActiveId(data[0].id)
       })
       .catch(console.error)
   }, [])
@@ -40,40 +43,67 @@ function LegacyApp() {
   // Called by ChatPanel when the user sends their first message in a pending chat
   const handleConversationCreated = (conv: ConversationVO) => {
     setConversations((prev) => [conv, ...prev])
-    setActiveId(conv.conversation_id)
+    setActiveId(conv.id)
     setPendingNew(false)
   }
 
   return (
-    <div style={{ display: 'flex', width: '100%', height: '100vh', overflow: 'hidden' }}>
-      <Sidebar
-        conversations={conversations}
-        activeId={activeId}
-        onSelect={(id) => { setActiveId(id); setPendingNew(false) }}
-        onNew={handleNew}
-      />
-      <div style={{ flex: 1, overflow: 'hidden' }}>
-        {activeId ? (
-          <ChatPanel key={activeId} conversationId={activeId} />
-        ) : (
-          <ChatPanel
-            key="pending"
-            conversationId={null}
-            onConversationCreated={handleConversationCreated}
-          />
-        )}
+    <>
+      <div style={{ display: 'flex', width: '100%', height: '100vh', overflow: 'hidden' }}>
+        <Sidebar
+          conversations={conversations}
+          activeId={activeId}
+          onSelect={(id) => { setActiveId(id); setPendingNew(false) }}
+          onNew={handleNew}
+        />
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          {activeId ? (
+            <ChatPanel key={activeId} conversationId={activeId} />
+          ) : (
+            <ChatPanel
+              key="pending"
+              conversationId={null}
+              onConversationCreated={handleConversationCreated}
+            />
+          )}
+        </div>
       </div>
-    </div>
+      <AuthModal
+        open={showAuthModal}
+        onOpenChange={setShowAuthModal}
+        onLoginSuccess={handleLoginSuccess}
+      />
+    </>
   )
 }
 
 function AssistantUIApp() {
+  const [showAuthModal, setShowAuthModal] = useState(!isLoggedIn())
+
+  useEffect(() => {
+    const handleAuthRequired = () => {
+      setShowAuthModal(true)
+    }
+    window.addEventListener('auth_required', handleAuthRequired)
+    return () => window.removeEventListener('auth_required', handleAuthRequired)
+  }, [])
+
+  const handleLoginSuccess = useCallback(() => {
+    // Refresh page after login
+    window.location.reload()
+  }, [])
+
   return (
     <BabyAgentRuntimeProvider>
       <div style={{ display: 'flex', width: '100%', height: '100', overflow: 'hidden' }}>
         <AssistantThreadList />
         <AssistantThread />
       </div>
+      <AuthModal
+        open={showAuthModal}
+        onOpenChange={setShowAuthModal}
+        onLoginSuccess={handleLoginSuccess}
+      />
     </BabyAgentRuntimeProvider>
   )
 }

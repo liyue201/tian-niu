@@ -44,7 +44,7 @@ export default function ChatPanel({ conversationId, onConversationCreated }: Pro
     listMessages(conversationId)
       .then((msgs) => {
         setHistory(msgs)
-        if (msgs.length > 0) lastMessageIdRef.current = msgs[msgs.length - 1].message_id
+        if (msgs.length > 0) lastMessageIdRef.current = msgs[msgs.length - 1].id
       })
       .catch(console.error)
   }, [conversationId])
@@ -69,7 +69,7 @@ export default function ChatPanel({ conversationId, onConversationCreated }: Pro
         return null
       })
       if (!conv) return
-      activeConvId = conv.conversation_id
+      activeConvId = conv.id
       convIdRef.current = activeConvId
       onConversationCreated?.(conv)
     }
@@ -80,12 +80,12 @@ export default function ChatPanel({ conversationId, onConversationCreated }: Pro
     setStreaming(turn)
 
     streamMessage(activeConvId, query, (e) => {
-      if (e.message_id) {
-        lastMessageIdRef.current = e.message_id
+      if (e.id) {
+        lastMessageIdRef.current = e.id
         // accumulate reasoning into cache keyed by message_id
         if (e.event === 'reasoning' && e.reasoning_content) {
-          const prev = reasoningCache.current.get(e.message_id) ?? ''
-          reasoningCache.current.set(e.message_id, prev + e.reasoning_content)
+          const prev = reasoningCache.current.get(e.id) ?? ''
+          reasoningCache.current.set(e.id, prev + e.reasoning_content)
         }
       }
       setStreaming((prev) => {
@@ -141,9 +141,9 @@ export default function ChatPanel({ conversationId, onConversationCreated }: Pro
           )}
           {history.map((msg) => (
             <MessageBubble
-              key={msg.message_id}
+              key={msg.id}
               msg={msg}
-              reasoning={reasoningCache.current.get(msg.message_id)}
+              reasoning={reasoningCache.current.get(msg.id)}
             />
           ))}
           {streaming && <StreamingBubble turn={streaming} />}

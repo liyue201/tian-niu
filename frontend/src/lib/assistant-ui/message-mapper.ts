@@ -19,7 +19,7 @@ interface StreamEventContext {
 
 export function toThreadSummary(conversation: ConversationVO): ThreadSummary {
   return {
-    threadId: conversation.conversation_id,
+    threadId: conversation.id,
     title: conversation.title,
     archived: false,
     createdAt: conversation.created_at,
@@ -30,7 +30,7 @@ export function toPersistedAssistantMessage(message: ChatMessageVO): PersistedAs
   const { reasoningChunks, toolCallChunks, toolResultChunks } = extractRoundChunks(message)
 
   return {
-    messageId: message.message_id,
+    messageId: message.id,
     threadId: message.conversation_id,
     parentMessageId: message.parent_message_id,
     query: message.query,
@@ -45,7 +45,7 @@ export function toPersistedAssistantMessage(message: ChatMessageVO): PersistedAs
 
 export function toAssistantThreadMessages(message: ChatMessageVO): AssistantThreadMessage[] {
   const persistedMessage = toPersistedAssistantMessage(message)
-  const userMessageId = toSyntheticUserMessageId(message.message_id)
+  const userMessageId = toSyntheticUserMessageId(message.id)
   const assistantParts: AssistantMessagePart[] = [
     ...toolCallChunksToMessageParts(persistedMessage.toolCallChunks),
     ...toolResultChunksToMessageParts(persistedMessage.toolResultChunks),
@@ -83,12 +83,12 @@ export function toAssistantStreamEvent(
 
   if (event.event === 'reasoning') {
     return {
-      messageId: event.message_id,
+      messageId: event.id,
       threadId: context.threadId,
       parentMessageId,
       event: event.event,
       text: event.reasoning_content ?? '',
-      reasoningChunks: [toReasoningChunk(event.message_id, parentMessageId, event.reasoning_content)],
+      reasoningChunks: [toReasoningChunk(event.id, parentMessageId, event.reasoning_content)],
       toolCallChunks: [],
       toolResultChunks: [],
     }
@@ -96,7 +96,7 @@ export function toAssistantStreamEvent(
 
   if (event.event === 'tool_call') {
     return {
-      messageId: event.message_id,
+      messageId: event.id,
       threadId: context.threadId,
       parentMessageId,
       event: event.event,
@@ -105,7 +105,7 @@ export function toAssistantStreamEvent(
       toolCallChunks: [
         {
           type: 'tool-call',
-          messageId: event.message_id,
+          messageId: event.id,
           parentMessageId,
           toolName: event.tool_call ?? '',
           args: event.tool_arguments ?? '',
@@ -117,7 +117,7 @@ export function toAssistantStreamEvent(
 
   if (event.event === 'tool_result') {
     return {
-      messageId: event.message_id,
+      messageId: event.id,
       threadId: context.threadId,
       parentMessageId,
       event: event.event,
@@ -127,7 +127,7 @@ export function toAssistantStreamEvent(
       toolResultChunks: [
         {
           type: 'tool-result',
-          messageId: event.message_id,
+          messageId: event.id,
           parentMessageId,
           toolName: event.tool_call ?? '',
           result: event.tool_result ?? '',
@@ -137,7 +137,7 @@ export function toAssistantStreamEvent(
   }
 
   return {
-    messageId: event.message_id,
+    messageId: event.id,
     threadId: context.threadId,
     parentMessageId,
     event: event.event,
@@ -168,14 +168,14 @@ export function extractRoundChunks(message: ChatMessageVO): {
       for (const toolCall of round.tool_calls) {
         toolNameById.set(toolCall.id, toolCall.name)
       }
-      toolCallChunks.push(...toToolCallChunks(message.message_id, message.parent_message_id, round))
+      toolCallChunks.push(...toToolCallChunks(message.id, message.parent_message_id, round))
     }
   }
 
   for (const round of message.rounds ?? []) {
     if (round.role === 'tool') {
       toolResultChunks.push(
-        toToolResultChunk(message.message_id, message.parent_message_id, round, toolNameById),
+        toToolResultChunk(message.id, message.parent_message_id, round, toolNameById),
       )
     }
   }
