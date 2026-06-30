@@ -1,5 +1,6 @@
 import { MessageSquarePlus, Pencil, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import logo from '../../assets/tn.png'
 import {
   useAui,
   ThreadListItemPrimitive,
@@ -41,9 +42,16 @@ export default function AssistantThreadList() {
           justifyContent: 'space-between',
         }}
       >
-        <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
-          Assistant UI
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <img 
+            src={logo} 
+            alt="TianNiu AI" 
+            style={{ width: 24, height: 24, borderRadius: 6, objectFit: 'cover' }} 
+          />
+          <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
+            天牛 AI
+          </span>
+        </div>
         <ThreadListPrimitive.New
           title="New Chat"
           style={{
