@@ -1,6 +1,4 @@
 import {useCallback, useEffect, useState} from 'react'
-import Sidebar from './components/Sidebar'
-import ChatPanel from './components/ChatPanel'
 import AssistantThread from './components/assistant-ui/thread'
 import AssistantThreadList from './components/assistant-ui/thread-list'
 import {BabyAgentRuntimeProvider} from './components/assistant-ui/runtime-provider'
