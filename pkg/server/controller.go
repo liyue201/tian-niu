@@ -15,6 +15,7 @@ func NewRouter(s *Server) *gin.Engine {
 
 	api := g.Group("/api")
 	api.POST("/user/register", s.register)
+	api.POST("/user/login", s.login)
 	api.POST("/conversation", s.createConversation)
 	api.GET("/conversation", s.listConversations)
 	api.PATCH("/conversation/:conversation_id", s.renameConversation)
@@ -36,6 +37,23 @@ func (s *Server) register(c *gin.Context) {
 	result, err := s.Register(req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, vo.Err(500, err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, vo.OK(result))
+}
+
+// POST /user/login
+func (s *Server) login(c *gin.Context) {
+	var req vo.LoginReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, vo.Err(400, err.Error()))
+		return
+	}
+
+	result, err := s.Login(req)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, vo.Err(401, err.Error()))
 		return
 	}
 
@@ -117,7 +135,7 @@ func (s *Server) listMessages(c *gin.Context) {
 }
 
 // POST /conversation/:conversation_id/message
-// 创建新消息并 SSE 流式输出 agent 响应
+// Create new message and stream agent response via SSE
 func (s *Server) createMessage(c *gin.Context) {
 	conversationID := c.Param("conversation_id")
 

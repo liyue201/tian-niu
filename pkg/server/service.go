@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/liyue201/tian-niu/pkg/auth"
 	"github.com/liyue201/tian-niu/pkg/db"
 
 	"github.com/google/uuid"
@@ -27,7 +28,7 @@ func NewServer(db *gorm.DB, agent *agent.Agent) *Server {
 }
 
 func (s *Server) Register(req vo.RegisterReq) (vo.UserVO, error) {
-	// 密码哈希
+	// Hash password
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return vo.UserVO{}, err
@@ -50,6 +51,34 @@ func (s *Server) Register(req vo.RegisterReq) (vo.UserVO, error) {
 		Username:  user.Username,
 		Email:     user.Email,
 		CreatedAt: user.CreatedAt,
+	}, nil
+}
+
+func (s *Server) Login(req vo.LoginReq) (vo.LoginRespVO, error) {
+	var user db.User
+	if err := s.db.Where("username = ?", req.Username).First(&user).Error; err != nil {
+		return vo.LoginRespVO{}, err
+	}
+
+	// Verify password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+		return vo.LoginRespVO{}, err
+	}
+
+	// Generate JWT token
+	token, err := auth.GenerateToken(user.UserID, user.Username)
+	if err != nil {
+		return vo.LoginRespVO{}, err
+	}
+
+	return vo.LoginRespVO{
+		User: vo.UserVO{
+			UserID:    user.UserID,
+			Username:  user.Username,
+			Email:     user.Email,
+			CreatedAt: user.CreatedAt,
+		},
+		Token: token,
 	}, nil
 }
 
@@ -148,15 +177,15 @@ func (s *Server) ListMessages(conversationID string) ([]vo.ChatMessageVO, error)
 	return result, nil
 }
 
-// CreateMessage 验证会话、构建历史、保存消息记录，并启动 agent 流式执行。
+// CreateMessage validates conversation, builds history, saves message record, and starts agent streaming execution.
 func (s *Server) CreateMessage(ctx context.Context, conversationID string, req vo.CreateMessageReq, voCh chan<- vo.SSEMessageVO) error {
-	// 验证会话存在
+	// Validate conversation exists
 	var conv db.Conversation
 	if err := s.db.Where("conversation_id = ?", conversationID).First(&conv).Error; err != nil {
 		return err
 	}
 
-	// 从历史消息构建 history
+	// Build history from previous messages
 	var historyMsgs []db.ChatMessage
 	if err := s.db.Where("conversation_id = ?", conversationID).
 		Order("created_at asc").Find(&historyMsgs).Error; err != nil {
@@ -218,7 +247,7 @@ func toSSEMessage(msgID string, e agent.StreamEvent) vo.SSEMessageVO {
 	return msg
 }
 
-// parseRounds 将存储的 rounds JSON 转换为前端友好的 RoundMessageVO 列表。
+// parseRounds converts stored rounds JSON to frontend-friendly RoundMessageVO list.
 func parseRounds(roundsJSON string) []vo.RoundMessageVO {
 	if roundsJSON == "" {
 		return nil
@@ -232,7 +261,7 @@ func parseRounds(roundsJSON string) []vo.RoundMessageVO {
 	for _, m := range msgs {
 		switch {
 		case m.OfUser != nil:
-			// user 消息不需要展示
+			// user messages don't need to be displayed
 			continue
 
 		case m.OfAssistant != nil:

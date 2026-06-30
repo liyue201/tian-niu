@@ -26,12 +26,12 @@ type ChatMessage struct {
 	ConversationID  string `gorm:"index"`
 	ParentMessageID string
 
-	Query    string // 用户的原始提问
-	Response string // 模型的最终输出package algorithms
+	Query    string // User's original question
+	Response string // Model's final output
 
-	Rounds string // 用户提问到模型结束 tool loop 之间所有的 llm 请求，以 json 存储
+	Rounds string // All LLM requests between user question and tool loop end, stored as JSON
 
-	Model string // 使用的模型
+	Model string // Model used
 	Usage string
 
 	CreatedAt int64
