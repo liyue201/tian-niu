@@ -1,10 +1,14 @@
 package main
 
 import (
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/joho/godotenv"
 	"github.com/liyue201/tian-niu/pkg/agent"
 	"github.com/liyue201/tian-niu/pkg/agent/tool"
-	"github.com/liyue201/tian-niu/pkg/db"
+	"github.com/liyue201/tian-niu/pkg/repository"
 	"github.com/liyue201/tian-niu/pkg/server"
 	"github.com/liyue201/tian-niu/pkg/shared"
 	"github.com/liyue201/tian-niu/pkg/shared/log"
@@ -19,18 +23,18 @@ func main() {
 		panic(err)
 	}
 
-	db, err := db.InitDB("test.db")
+	db, err := repository.NewRepository("test.db")
 	if err != nil {
 		log.Errorf("Failed to initialize database: %v", err)
 		panic(err)
 	}
 
 	a := agent.NewAgent(appConf.LLMProviders.FrontModel, agent.SystemPrompt, []tool.Tool{tool.NewBashTool()})
-	s := server.NewServer(db, a)
-	router := server.NewRouter(s)
+	s := server.NewServer(":8080", db, a)
+	s.Run()
+	defer s.Stop()
 
-	if err := router.Run(":8080"); err != nil {
-		log.Errorf("Server failed: %v", err)
-		panic(err)
-	}
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+	<-signalChan
 }

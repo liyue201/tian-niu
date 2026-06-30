@@ -7,14 +7,6 @@ type R struct {
 	Data any    `json:"data,omitempty"`
 }
 
-func OK(data any) R {
-	return R{Code: 0, Msg: "ok", Data: data}
-}
-
-func Err(code int, msg string) R {
-	return R{Code: code, Msg: msg}
-}
-
 // CreateConversationReq POST /conversation request body
 type CreateConversationReq struct {
 	UserID string `json:"user_id" binding:"required"`
@@ -35,10 +27,10 @@ type CreateMessageReq struct {
 
 // ConversationVO GET /conversation list item
 type ConversationVO struct {
-	ConversationID string `json:"conversation_id"`
-	UserID         string `json:"user_id"`
-	Title          string `json:"title"`
-	CreatedAt      int64  `json:"created_at"`
+	ID        string `json:"id"`
+	UserID    string `json:"user_id"`
+	Title     string `json:"title"`
+	CreatedAt int64  `json:"created_at"`
 }
 
 // RoundMessageVO is a simplified view of an LLM round message
@@ -84,7 +76,7 @@ type LoginReq struct {
 
 // UserVO User info response
 type UserVO struct {
-	UserID    string `json:"user_id"`
+	ID        string `json:"id"`
 	Username  string `json:"username"`
 	Email     string `json:"email"`
 	CreatedAt int64  `json:"created_at"`

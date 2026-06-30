@@ -16,7 +16,7 @@ export const babyAgentThreadListAdapter: RemoteThreadListAdapter = {
     return {
       threads: conversations.map((conversation) => ({
         status: 'regular' as const,
-        remoteId: conversation.conversation_id,
+        remoteId: conversation.id,
         title: conversation.title,
       })),
     }
@@ -25,21 +25,21 @@ export const babyAgentThreadListAdapter: RemoteThreadListAdapter = {
   async initialize(localId) {
     const conversation = await createThread()
     return {
-      remoteId: conversation.conversation_id,
+      remoteId: conversation.id,
       externalId: localId,
     }
   },
 
   async fetch(remoteId) {
     const conversations = await fetchThreads()
-    const conversation = conversations.find((entry) => entry.conversation_id === remoteId)
+    const conversation = conversations.find((entry) => entry.id === remoteId)
     if (!conversation) {
       throw new Error(`Conversation ${remoteId} was not found on the backend`)
     }
 
     return {
       status: 'regular' as const,
-      remoteId: conversation.conversation_id,
+      remoteId: conversation.id,
       title: conversation.title,
     }
   },

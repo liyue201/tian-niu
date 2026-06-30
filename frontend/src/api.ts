@@ -10,7 +10,7 @@ interface APIResponse<T> {
 }
 
 export interface ConversationVO {
-  conversation_id: string
+  id: string
   user_id: string
   title: string
   created_at: number
@@ -31,7 +31,7 @@ export interface RoundMessageVO {
 }
 
 export interface ChatMessageVO {
-  message_id: string
+  id: string
   conversation_id: string
   parent_message_id: string
   query: string
@@ -42,7 +42,7 @@ export interface ChatMessageVO {
 }
 
 export interface SSEMessageVO {
-  message_id: string
+  id: string
   event: 'error' | 'reasoning' | 'content' | 'tool_call' | 'tool_result'
   content?: string
   reasoning_content?: string

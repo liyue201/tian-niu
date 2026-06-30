@@ -1,8 +1,9 @@
-package server
+package service
 
 import (
 	"encoding/json"
-	"github.com/liyue201/tian-niu/pkg/db"
+
+	"github.com/liyue201/tian-niu/pkg/model"
 
 	"github.com/liyue201/tian-niu/pkg/shared"
 )
@@ -10,19 +11,19 @@ import (
 // buildHistory 根据 parent_message_id 沿树向上追溯路径，
 // 将路径上每条消息的 rounds 拼接成 LLM history。
 // allMsgs 为该会话下的全部消息，parentMessageID 为本次请求的父消息 ID。
-func buildHistory(allMsgs []db.ChatMessage, parentMessageID string) []shared.OpenAIMessage {
+func buildHistory(allMsgs []*model.ChatMessage, parentMessageID string) []shared.OpenAIMessage {
 	if parentMessageID == "" {
 		return nil
 	}
 
 	// 构建 id -> message 索引
-	index := make(map[string]*db.ChatMessage, len(allMsgs))
+	index := make(map[string]*model.ChatMessage, len(allMsgs))
 	for i := range allMsgs {
-		index[allMsgs[i].MessageID] = &allMsgs[i]
+		index[allMsgs[i].MessageID] = allMsgs[i]
 	}
 
 	// 从 parentMessageID 向根节点追溯，收集路径（顺序：根 -> parent）
-	path := make([]*db.ChatMessage, 0)
+	path := make([]*model.ChatMessage, 0)
 	cur := parentMessageID
 	for cur != "" {
 		msg, ok := index[cur]

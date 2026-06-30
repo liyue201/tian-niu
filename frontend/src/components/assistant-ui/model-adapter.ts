@@ -147,7 +147,7 @@ function extractTextContent(message: ThreadMessage): string {
 }
 
 function applySSEEvent(state: RunState, event: SSEMessageVO): ChatModelRunResult | null {
-  state.backendMessageId = event.message_id
+  state.backendMessageId = event.id
 
   switch (event.event) {
     case 'content':
@@ -224,7 +224,7 @@ function appendToolCallPart(state: RunState, event: SSEMessageVO): void {
   state.toolCallSequence += 1
   state.parts.push({
     type: 'tool-call',
-    toolCallId: `${event.message_id}:${state.toolCallSequence}`,
+    toolCallId: `${event.id}:${state.toolCallSequence}`,
     toolName,
     args: parseToolArgs(argsText),
     argsText,
@@ -240,7 +240,7 @@ function appendToolResult(state: RunState, event: SSEMessageVO): void {
     state.toolCallSequence += 1
     state.parts.push({
       type: 'tool-call',
-      toolCallId: `${event.message_id}:${state.toolCallSequence}`,
+      toolCallId: `${event.id}:${state.toolCallSequence}`,
       toolName,
       args: {},
       argsText: '',

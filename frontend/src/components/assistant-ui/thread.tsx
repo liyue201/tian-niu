@@ -108,7 +108,7 @@ function buildHistoryRepository(history: ChatMessageVO[]): ExportedMessageReposi
   const messages: ExportedMessageRepository['messages'] = []
 
   for (const item of history) {
-    const userMessageId = toUserMessageId(item.message_id)
+    const userMessageId = toUserMessageId(item.id)
     const userMessage: ThreadUserMessage = {
       id: userMessageId,
       role: 'user',
@@ -121,7 +121,7 @@ function buildHistoryRepository(history: ChatMessageVO[]): ExportedMessageReposi
     }
 
     const assistantMessage: ThreadAssistantMessage = {
-      id: item.message_id,
+      id: item.id,
       role: 'assistant',
       createdAt: toDate(item.created_at),
       content: buildAssistantParts(item),
@@ -132,7 +132,7 @@ function buildHistoryRepository(history: ChatMessageVO[]): ExportedMessageReposi
         unstable_data: [],
         steps: [],
         custom: {
-          backendMessageId: item.message_id,
+          backendMessageId: item.id,
         },
       },
     }
@@ -148,7 +148,7 @@ function buildHistoryRepository(history: ChatMessageVO[]): ExportedMessageReposi
   }
 
   return {
-    headId: history.length > 0 ? history[history.length - 1]?.message_id ?? null : null,
+    headId: history.length > 0 ? history[history.length - 1]?.id ?? null : null,
     messages,
   }
 }

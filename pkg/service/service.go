@@ -1,4 +1,4 @@
-package server
+package service
 
 import (
 	"context"
@@ -6,57 +6,57 @@ import (
 	"time"
 
 	"github.com/liyue201/tian-niu/pkg/auth"
-	"github.com/liyue201/tian-niu/pkg/db"
+	"github.com/liyue201/tian-niu/pkg/model"
+	"github.com/liyue201/tian-niu/pkg/repository"
 
 	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
-
 	"github.com/liyue201/tian-niu/pkg/agent"
 	"github.com/liyue201/tian-niu/pkg/shared"
 	"github.com/liyue201/tian-niu/pkg/shared/log"
 	"github.com/liyue201/tian-niu/pkg/vo"
+	"golang.org/x/crypto/bcrypt"
 )
 
-type Server struct {
-	db    *gorm.DB
+type Service struct {
+	db    *repository.Repository
 	agent *agent.Agent
 }
 
-func NewServer(db *gorm.DB, agent *agent.Agent) *Server {
-	return &Server{db: db, agent: agent}
+func NewService(db *repository.Repository, agent *agent.Agent) *Service {
+	return &Service{db: db, agent: agent}
 }
 
-func (s *Server) Register(req vo.RegisterReq) (vo.UserVO, error) {
+func (s *Service) Register(req vo.RegisterReq) (vo.UserVO, error) {
 	// Hash password
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return vo.UserVO{}, err
 	}
 
-	user := db.User{
-		UserID:       uuid.New().String(),
+	user := &model.User{
+		ID:           uuid.New().String(),
 		Username:     req.Username,
 		Email:        req.Email,
 		PasswordHash: string(passwordHash),
 		CreatedAt:    time.Now().Unix(),
 	}
 
-	if err := s.db.Create(&user).Error; err != nil {
+	err = s.db.Create(user)
+	if err != nil {
 		return vo.UserVO{}, err
 	}
-
 	return vo.UserVO{
-		UserID:    user.UserID,
+		ID:        user.ID,
 		Username:  user.Username,
 		Email:     user.Email,
 		CreatedAt: user.CreatedAt,
 	}, nil
 }
 
-func (s *Server) Login(req vo.LoginReq) (vo.LoginRespVO, error) {
-	var user db.User
-	if err := s.db.Where("username = ?", req.Username).First(&user).Error; err != nil {
+func (s *Service) Login(req vo.LoginReq) (vo.LoginRespVO, error) {
+
+	user, err := s.db.GetUserByUsername(req.Username)
+	if err != nil {
 		return vo.LoginRespVO{}, err
 	}
 
@@ -66,14 +66,14 @@ func (s *Server) Login(req vo.LoginReq) (vo.LoginRespVO, error) {
 	}
 
 	// Generate JWT token
-	token, err := auth.GenerateToken(user.UserID, user.Username)
+	token, err := auth.GenerateToken(user.ID, user.Username)
 	if err != nil {
 		return vo.LoginRespVO{}, err
 	}
 
 	return vo.LoginRespVO{
 		User: vo.UserVO{
-			UserID:    user.UserID,
+			ID:        user.ID,
 			Username:  user.Username,
 			Email:     user.Email,
 			CreatedAt: user.CreatedAt,
@@ -82,82 +82,76 @@ func (s *Server) Login(req vo.LoginReq) (vo.LoginRespVO, error) {
 	}, nil
 }
 
-func (s *Server) CreateConversation(req vo.CreateConversationReq) (vo.ConversationVO, error) {
-	conv := db.Conversation{
-		ConversationID: uuid.New().String(),
-		UserID:         req.UserID,
-		Title:          req.Title,
-		CreatedAt:      time.Now().Unix(),
+func (s *Service) CreateConversation(req vo.CreateConversationReq) (vo.ConversationVO, error) {
+	conv := model.Conversation{
+		ID:        uuid.New().String(),
+		UserID:    req.UserID,
+		Title:     req.Title,
+		CreatedAt: time.Now().Unix(),
 	}
-	if err := s.db.Create(&conv).Error; err != nil {
+	if err := s.db.Create(&conv); err != nil {
 		return vo.ConversationVO{}, err
 	}
 	return vo.ConversationVO{
-		ConversationID: conv.ConversationID,
-		UserID:         conv.UserID,
-		Title:          conv.Title,
-		CreatedAt:      conv.CreatedAt,
+		ID:        conv.ID,
+		UserID:    conv.UserID,
+		Title:     conv.Title,
+		CreatedAt: conv.CreatedAt,
 	}, nil
 }
 
-func (s *Server) ListConversations(userID string) ([]vo.ConversationVO, error) {
-	var convs []db.Conversation
-	query := s.db.Order("created_at desc")
-	if userID != "" {
-		query = query.Where("user_id = ?", userID)
-	}
-	if err := query.Find(&convs).Error; err != nil {
+func (s *Service) ListConversations(userID string) ([]vo.ConversationVO, error) {
+
+	list, err := s.db.GetUserConversations(userID)
+	if err != nil {
 		return nil, err
 	}
-
-	result := make([]vo.ConversationVO, 0, len(convs))
-	for _, conv := range convs {
+	result := make([]vo.ConversationVO, 0, len(list))
+	for _, conv := range list {
 		result = append(result, vo.ConversationVO{
-			ConversationID: conv.ConversationID,
-			UserID:         conv.UserID,
-			Title:          conv.Title,
-			CreatedAt:      conv.CreatedAt,
+			ID:        conv.ID,
+			UserID:    conv.UserID,
+			Title:     conv.Title,
+			CreatedAt: conv.CreatedAt,
 		})
 	}
 	return result, nil
 }
 
-func (s *Server) RenameConversation(conversationID string, title string) (vo.ConversationVO, error) {
-	if err := s.db.Model(&db.Conversation{}).
-		Where("conversation_id = ?", conversationID).
-		Update("title", title).Error; err != nil {
+func (s *Service) RenameConversation(conversationID string, title string) (vo.ConversationVO, error) {
+
+	conv, err := s.db.GetConversationByID(conversationID)
+	if err != nil {
 		return vo.ConversationVO{}, err
 	}
-
-	var conv db.Conversation
-	if err := s.db.First(&conv, "conversation_id = ?", conversationID).Error; err != nil {
+	conv.Title = title
+	if err := s.db.UpdateConversationTitle(conv); err != nil {
 		return vo.ConversationVO{}, err
 	}
 
 	return vo.ConversationVO{
-		ConversationID: conv.ConversationID,
-		UserID:         conv.UserID,
-		Title:          conv.Title,
-		CreatedAt:      conv.CreatedAt,
+		ID:        conv.ID,
+		UserID:    conv.UserID,
+		Title:     conv.Title,
+		CreatedAt: conv.CreatedAt,
 	}, nil
 }
 
-func (s *Server) DeleteConversation(conversationID string) error {
-	return s.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("conversation_id = ?", conversationID).
-			Delete(&db.ChatMessage{}).Error; err != nil {
-			return err
-		}
-
-		return tx.Where("conversation_id = ?", conversationID).
-			Delete(&db.Conversation{}).Error
-	})
+func (s *Service) DeleteConversation(conversationID string) error {
+	conv, err := s.db.GetConversationByID(conversationID)
+	if err != nil {
+		return err
+	}
+	if err := s.db.Delete(conv); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (s *Server) ListMessages(conversationID string) ([]vo.ChatMessageVO, error) {
-	var msgs []db.ChatMessage
-	if err := s.db.Where("conversation_id = ?", conversationID).
-		Order("created_at asc").Find(&msgs).Error; err != nil {
+func (s *Service) ListMessages(conversationID string) ([]vo.ChatMessageVO, error) {
+
+	msgs, err := s.db.GetConversationMessages(conversationID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -178,19 +172,19 @@ func (s *Server) ListMessages(conversationID string) ([]vo.ChatMessageVO, error)
 }
 
 // CreateMessage validates conversation, builds history, saves message record, and starts agent streaming execution.
-func (s *Server) CreateMessage(ctx context.Context, conversationID string, req vo.CreateMessageReq, voCh chan<- vo.SSEMessageVO) error {
+func (s *Service) CreateMessage(ctx context.Context, conversationID string, req vo.CreateMessageReq, voCh chan<- vo.SSEMessageVO) error {
 	// Validate conversation exists
-	var conv db.Conversation
-	if err := s.db.Where("conversation_id = ?", conversationID).First(&conv).Error; err != nil {
+	_, err := s.db.GetConversationByID(conversationID)
+	if err != nil {
 		return err
 	}
 
 	// Build history from previous messages
-	var historyMsgs []db.ChatMessage
-	if err := s.db.Where("conversation_id = ?", conversationID).
-		Order("created_at asc").Find(&historyMsgs).Error; err != nil {
+	historyMsgs, err := s.db.GetConversationMessages(conversationID)
+	if err != nil {
 		return err
 	}
+
 	history := buildHistory(historyMsgs, req.ParentMessageID)
 
 	msgID := uuid.New().String()
@@ -214,7 +208,7 @@ func (s *Server) CreateMessage(ctx context.Context, conversationID string, req v
 
 	roundsJSON, _ := json.Marshal(result.Rounds)
 	usageJSON, _ := json.Marshal(result.Usage)
-	s.db.Create(&db.ChatMessage{
+	s.db.Create(&model.ChatMessage{
 		MessageID:       msgID,
 		UserID:          req.UserID,
 		ConversationID:  conversationID,
