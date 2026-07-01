@@ -7,7 +7,7 @@ import type {
 } from '@assistant-ui/react'
 import type { ReadonlyJSONObject } from 'assistant-stream/utils'
 
-import { streamThreadRun, type SSEMessageVO } from '../../api'
+import { createThread, streamThreadRun, type SSEMessageVO } from '../../api'
 
 interface TransportErrorItem {
   type: 'transport-error'
@@ -65,14 +65,16 @@ class AsyncQueue<T> {
 
 export const babyAgentChatModelAdapter: ChatModelAdapter = {
   async *run(options) {
-    const threadId = options.unstable_threadId
-    if (!threadId) {
-      throw new Error('assistant-ui did not provide an active thread id for the local runtime')
-    }
 
     const query = getLatestUserQuery(options.messages)
     if (!query) {
       throw new Error('Unable to derive the latest user message text for the backend request')
+    }
+
+    let threadId = options.unstable_threadId
+    if (!threadId) {
+      const conversation = await createThread(query.slice(0, 10))
+      threadId = conversation.id
     }
 
     const queue = new AsyncQueue<StreamQueueItem>()

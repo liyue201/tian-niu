@@ -4,7 +4,6 @@ import { createAssistantStream } from 'assistant-stream'
 import {
   THREAD_OPERATION_SUPPORT,
   archiveThread,
-  createThread,
   deleteThread,
   fetchThreads,
   renameThread,
@@ -23,9 +22,8 @@ export const babyAgentThreadListAdapter: RemoteThreadListAdapter = {
   },
 
   async initialize(localId) {
-    const conversation = await createThread()
     return {
-      remoteId: conversation.id,
+      remoteId: localId,
       externalId: localId,
     }
   },
