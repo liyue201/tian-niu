@@ -7,7 +7,8 @@ import type {
 } from '@assistant-ui/react'
 import type { ReadonlyJSONObject } from 'assistant-stream/utils'
 
-import { createThread, streamThreadRun, type SSEMessageVO } from '../../api'
+import {streamThreadRun, type SSEMessageVO, renameThread} from '../../api'
+import { consumeLatestThreadId } from './thread-list-adapter'
 
 interface TransportErrorItem {
   type: 'transport-error'
@@ -72,9 +73,13 @@ export const babyAgentChatModelAdapter: ChatModelAdapter = {
     }
 
     let threadId = options.unstable_threadId
+
     if (!threadId) {
-      const conversation = await createThread(query.slice(0, 10))
-      threadId = conversation.id
+      threadId = consumeLatestThreadId()
+    }
+
+    if (!threadId) {
+      throw new Error('threadId is not available')
     }
 
     const queue = new AsyncQueue<StreamQueueItem>()

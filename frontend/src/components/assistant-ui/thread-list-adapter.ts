@@ -4,10 +4,19 @@ import { createAssistantStream } from 'assistant-stream'
 import {
   THREAD_OPERATION_SUPPORT,
   archiveThread,
+  createThread,
   deleteThread,
   fetchThreads,
   renameThread,
 } from '../../api'
+
+let latestCreatedThreadId: string | undefined
+
+export function consumeLatestThreadId(): string | undefined {
+  const id = latestCreatedThreadId
+  latestCreatedThreadId = undefined
+  return id
+}
 
 export const babyAgentThreadListAdapter: RemoteThreadListAdapter = {
   async list() {
@@ -22,9 +31,11 @@ export const babyAgentThreadListAdapter: RemoteThreadListAdapter = {
   },
 
   async initialize(localId) {
+    const conversation = await createThread()
+    latestCreatedThreadId = conversation.id
     return {
-      remoteId: localId,
-      externalId: localId,
+      remoteId: conversation.id,
+      externalId: conversation.id,
     }
   },
 
