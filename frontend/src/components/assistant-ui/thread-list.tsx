@@ -46,7 +46,7 @@ export default function AssistantThreadList() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <img 
             src={logo} 
-            alt="TianNiu AI" 
+            alt="TianNiu AI"
             style={{ width: 24, height: 24, borderRadius: 6, objectFit: 'cover' }} 
           />
           <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>

@@ -6,21 +6,21 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var secretKey = []byte("tian-niu-secret-key") // 生产环境应从环境变量读取
+var secretKey = []byte("tian-niu-secret-key") // In production, read from environment variable
 
-// GenerateToken 生成JWT token
+// GenerateToken generates a JWT token
 func GenerateToken(userID, username string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id":  userID,
 		"username": username,
-		"exp":      time.Now().Add(time.Hour * 24).Unix(), // 24小时过期
+		"exp":      time.Now().Add(time.Hour * 24).Unix(), // 24 hours expiry
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(secretKey)
 }
 
-// ParseToken 解析JWT token
+// ParseToken parses a JWT token
 func ParseToken(tokenString string) (jwt.MapClaims, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		return secretKey, nil

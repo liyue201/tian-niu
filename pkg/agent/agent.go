@@ -23,6 +23,7 @@ You are Tianniu, a professional knowledge Q&A assistant.
 - Present comparison questions in structured tables, and provide scenario-based selection recommendations at the end.
 - Keep answers concise and well-organized with clear paragraphs and bullet points; use accurate professional terminology and avoid irrelevant chatter.
 - For development or LLM API-related questions, automatically supplement extra_body inference parameters, reasoning_content parsing logic and layered architecture specifications.
+- Use Markdown syntax highlighting blocks for all code snippets.
 
 Reply directly with text for conversations.
 `
@@ -64,8 +65,8 @@ func (a *Agent) buildTools() []openai.ChatCompletionToolUnionParam {
 	return tools
 }
 
-// executeTool 执行单个 tool call，返回 tool result 和错误。
-// tool 不存在时返回错误；Execute 失败时返回错误，result 为错误信息。
+// executeTool executes a single tool call, returning the tool result and error.
+// Returns an error if the tool is not found; if Execute fails, the error message is returned as result.
 func (a *Agent) executeTool(ctx context.Context, toolCall openai.ChatCompletionMessageToolCallUnion) (string, error) {
 	t, ok := a.findTool(toolCall.Function.Name)
 	if !ok {
@@ -74,23 +75,23 @@ func (a *Agent) executeTool(ctx context.Context, toolCall openai.ChatCompletionM
 	return t.Execute(ctx, toolCall.Function.Arguments)
 }
 
-// RunResult 是 Agent 一轮运行的结果
+// RunResult holds the result of one agent run
 type RunResult struct {
 	Response string
 	Rounds   []shared.OpenAIMessage
 	Usage    openai.CompletionUsage
 }
 
-// RunStreaming 执行 agent loop，通过 eventCh 流式输出，结束后返回 RunResult
-// history 是本会话之前所有 ChatMessage.Rounds 反序列化后的消息列表
+// RunStreaming executes the agent loop, streaming output via eventCh, and returns RunResult when done.
+// history is the deserialized message list from all previous ChatMessage.Rounds in this conversation.
 func (a *Agent) RunStreaming(ctx context.Context, history []openai.ChatCompletionMessageParamUnion, query string, eventCh chan<- StreamEvent) (RunResult, error) {
-	// 构建本轮消息：system + 历史 + 当前 user 消息
+	// Build messages for this round: system + history + current user message
 	messages := make([]openai.ChatCompletionMessageParamUnion, 0, len(history)+2)
 	messages = append(messages, openai.SystemMessage(a.systemPrompt))
 	messages = append(messages, history...)
 	messages = append(messages, openai.UserMessage(query))
 
-	// roundMessages 记录本轮新增消息（user + assistant + tool，不含 system 和历史）
+	// roundMessages tracks new messages from this round (user + assistant + tool, excluding system and history)
 	roundMessages := []shared.OpenAIMessage{openai.UserMessage(query)}
 
 	var usage openai.CompletionUsage
@@ -138,13 +139,13 @@ func (a *Agent) RunStreaming(ctx context.Context, history []openai.ChatCompletio
 		messages = append(messages, assistantMsg)
 		roundMessages = append(roundMessages, assistantMsg)
 
-		// 没有 tool call，结束 loop
+		// No tool calls, end loop
 		if len(message.ToolCalls) == 0 {
 			finalResponse = message.Content
 			break
 		}
 
-		// 执行 tool calls
+		// Execute tool calls
 		for _, toolCall := range message.ToolCalls {
 			eventCh <- StreamEvent{Event: EventToolCall, ToolCall: toolCall.Function.Name, ToolArguments: toolCall.Function.Arguments}
 
@@ -160,7 +161,7 @@ func (a *Agent) RunStreaming(ctx context.Context, history []openai.ChatCompletio
 			roundMessages = append(roundMessages, toolMsg)
 		}
 
-		// 检查 context 是否取消
+		// Check if context is cancelled
 		select {
 		case <-ctx.Done():
 			return RunResult{Response: finalResponse}, ctx.Err()

@@ -8,21 +8,21 @@ import (
 	"github.com/liyue201/tian-niu/pkg/shared"
 )
 
-// buildHistory 根据 parent_message_id 沿树向上追溯路径，
-// 将路径上每条消息的 rounds 拼接成 LLM history。
-// allMsgs 为该会话下的全部消息，parentMessageID 为本次请求的父消息 ID。
+// buildHistory traces the path from parent_message_id up to the root,
+// concatenating the rounds of each message along the path into LLM history.
+// allMsgs contains all messages in the conversation; parentMessageID is the parent message ID for this request.
 func buildHistory(allMsgs []*model.ChatMessage, parentMessageID string) []shared.OpenAIMessage {
 	if parentMessageID == "" {
 		return nil
 	}
 
-	// 构建 id -> message 索引
+	// Build id -> message index
 	index := make(map[string]*model.ChatMessage, len(allMsgs))
 	for i := range allMsgs {
 		index[allMsgs[i].MessageID] = allMsgs[i]
 	}
 
-	// 从 parentMessageID 向根节点追溯，收集路径（顺序：根 -> parent）
+	// Trace from parentMessageID to root, collecting the path (order: leaf -> root)
 	path := make([]*model.ChatMessage, 0)
 	cur := parentMessageID
 	for cur != "" {
@@ -34,12 +34,12 @@ func buildHistory(allMsgs []*model.ChatMessage, parentMessageID string) []shared
 		cur = msg.ParentMessageID
 	}
 
-	// 反转：变为根 -> parent 顺序
+	// Reverse to root -> parent order
 	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
 		path[i], path[j] = path[j], path[i]
 	}
 
-	// 拼接每条消息的 rounds
+	// Concatenate rounds from each message
 	history := make([]shared.OpenAIMessage, 0)
 	for _, msg := range path {
 		if msg.Rounds == "" {

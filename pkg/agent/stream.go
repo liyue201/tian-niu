@@ -8,7 +8,7 @@ const (
 	EventToolResult = "tool_result"
 )
 
-// StreamEvent 是 agent 内部流式输出的事件类型，与传输层无关
+// StreamEvent is the event type for internal streaming output from the agent, independent of the transport layer
 type StreamEvent struct {
 	Event            string
 	Content          string

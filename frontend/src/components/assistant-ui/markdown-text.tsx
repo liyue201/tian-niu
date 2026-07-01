@@ -4,8 +4,10 @@ import type { TextMessagePartProps } from '@assistant-ui/react'
 
 export default function MarkdownText({ text }: TextMessagePartProps) {
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-      {text}
-    </ReactMarkdown>
+    <div style={{ overflowX: 'auto' }}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+        {text}
+      </ReactMarkdown>
+    </div>
   )
 }

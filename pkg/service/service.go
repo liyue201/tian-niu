@@ -159,7 +159,7 @@ func (s *Service) DeleteConversation(userId, conversationID string) error {
 
 func (s *Service) ListMessages(conversationID string) ([]vo.ChatMessageVO, error) {
 
-	msgs, err := s.db.GetConversationMessages(conversationID)
+	msgs, err := s.db.GetConversationMessages(conversationID, -1)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +192,7 @@ func (s *Service) CreateMessage(ctx context.Context, conversationID string, req 
 	}
 
 	// Build history from previous messages
-	historyMsgs, err := s.db.GetConversationMessages(conversationID)
+	historyMsgs, err := s.db.GetConversationMessages(conversationID, 10)
 	if err != nil {
 		return err
 	}

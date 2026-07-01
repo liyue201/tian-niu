@@ -62,6 +62,7 @@ export default function ToolCallCard({ toolName, argsText, result }: ToolCallMes
                 padding: '8px 10px',
                 color: '#4ade80',
                 wordBreak: 'break-word',
+                overflowX: 'auto',
                 borderTop: argsText ? '1px solid var(--border)' : undefined,
               }}
             >
