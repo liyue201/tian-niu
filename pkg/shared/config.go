@@ -8,7 +8,6 @@ import (
 type AppConfig struct {
 	LLMProviders struct {
 		FrontModel ModelConfig `json:"front_model"`
-		BackModel  ModelConfig `json:"back_model"`
 	} `json:"llm_providers"`
 }
 

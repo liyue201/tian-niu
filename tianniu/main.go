@@ -23,7 +23,11 @@ func main() {
 		panic(err)
 	}
 
-	db, err := repository.NewRepository("test.db")
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		dbPath = "test.db"
+	}
+	db, err := repository.NewRepository(dbPath)
 	if err != nil {
 		log.Errorf("Failed to initialize database: %v", err)
 		panic(err)
