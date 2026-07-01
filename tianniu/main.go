@@ -29,7 +29,7 @@ func main() {
 		panic(err)
 	}
 
-	a := agent.NewAgent(appConf.LLMProviders.FrontModel, agent.SystemPrompt, []tool.Tool{tool.NewBashTool()})
+	a := agent.NewAgent(appConf.LLMProviders.FrontModel, agent.SystemPrompt, []tool.Tool{})
 	s := server.NewServer(":8080", db, a)
 	s.Run()
 	defer s.Stop()

@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import type { ToolCallMessagePartProps } from '@assistant-ui/react'
 
 export default function ToolCallCard({ toolName, argsText, result }: ToolCallMessagePartProps) {
@@ -54,18 +56,19 @@ export default function ToolCallCard({ toolName, argsText, result }: ToolCallMes
             </pre>
           ) : null}
           {result !== undefined ? (
-            <pre
+            <div
               style={{
                 margin: 0,
                 padding: '8px 10px',
                 color: '#4ade80',
-                whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
                 borderTop: argsText ? '1px solid var(--border)' : undefined,
               }}
             >
-              {formatToolResult(result)}
-            </pre>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {formatToolResult(result)}
+              </ReactMarkdown>
+            </div>
           ) : null}
         </div>
       ) : null}

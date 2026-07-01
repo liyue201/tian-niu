@@ -1,5 +1,6 @@
 import { MessagePrimitive, useAuiState } from '@assistant-ui/react'
 
+import MarkdownText from './markdown-text'
 import ReasoningPanel from './reasoning-panel'
 import ToolCallCard from './tool-call-card'
 
@@ -25,11 +26,11 @@ export default function AssistantThreadMessage() {
           color: 'var(--text)',
           fontSize: 14,
           lineHeight: 1.7,
-          whiteSpace: 'pre-wrap',
         }}
       >
         <MessagePrimitive.Parts
           components={{
+            Text: MarkdownText,
             Reasoning: ReasoningPanel,
             tools: {
               Fallback: ToolCallCard,
