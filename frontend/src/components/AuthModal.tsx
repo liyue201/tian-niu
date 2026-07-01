@@ -64,7 +64,8 @@ export default function AuthModal({ open, onOpenChange, onLoginSuccess }: AuthMo
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-md !p-0">
+                <div style={{ padding: '36px' }}>
                 <DialogHeader>
                     <DialogTitle className="text-xl">
                         {mode === 'login' ? 'Sign In' : 'Create Account'}
@@ -82,9 +83,9 @@ export default function AuthModal({ open, onOpenChange, onLoginSuccess }: AuthMo
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-[var(--text)] mb-1">
+                <form onSubmit={handleSubmit} style={{ marginTop: '24px' }}>
+                    <div style={{ marginBottom: '20px' }}>
+                        <label className="block text-sm font-medium text-[var(--text)]" style={{ marginBottom: '8px', display: 'block' }}>
                             Username
                         </label>
                         <Input
@@ -98,8 +99,8 @@ export default function AuthModal({ open, onOpenChange, onLoginSuccess }: AuthMo
                     </div>
 
                     {mode === 'register' && (
-                        <div>
-                            <label className="block text-sm font-medium text-[var(--text)] mb-1">
+                        <div style={{ marginBottom: '20px' }}>
+                            <label className="block text-sm font-medium text-[var(--text)]" style={{ marginBottom: '8px', display: 'block' }}>
                                 Email
                             </label>
                             <Input
@@ -113,8 +114,8 @@ export default function AuthModal({ open, onOpenChange, onLoginSuccess }: AuthMo
                         </div>
                     )}
 
-                    <div>
-                        <label className="block text-sm font-medium text-[var(--text)] mb-1">
+                    <div style={{ marginBottom: '20px' }}>
+                        <label className="block text-sm font-medium text-[var(--text)]" style={{ marginBottom: '8px', display: 'block' }}>
                             Password
                         </label>
                         <Input
@@ -128,8 +129,8 @@ export default function AuthModal({ open, onOpenChange, onLoginSuccess }: AuthMo
                     </div>
 
                     {mode === 'register' && (
-                        <div>
-                            <label className="block text-sm font-medium text-[var(--text)] mb-1">
+                        <div style={{ marginBottom: '20px' }}>
+                            <label className="block text-sm font-medium text-[var(--text)]" style={{ marginBottom: '8px', display: 'block' }}>
                                 Confirm Password
                             </label>
                             <Input
@@ -143,12 +144,12 @@ export default function AuthModal({ open, onOpenChange, onLoginSuccess }: AuthMo
                         </div>
                     )}
 
-                    <Button type="submit" disabled={loading} className="w-full mt-6">
+                    <Button type="submit" disabled={loading} className="w-full" style={{ marginTop: '8px' }}>
                         {loading ? 'Loading...' : mode === 'login' ? 'Sign In' : 'Create Account'}
                     </Button>
                 </form>
 
-                <p className="mt-4 text-center text-sm text-[var(--text-muted)]">
+                <p className="text-center text-sm text-[var(--text-muted)]" style={{ marginTop: '20px' }}>
                     {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}{' '}
                     <button
                         type="button"
@@ -161,6 +162,7 @@ export default function AuthModal({ open, onOpenChange, onLoginSuccess }: AuthMo
                         {mode === 'login' ? 'Sign up' : 'Sign in'}
                     </button>
                 </p>
+                </div>
             </DialogContent>
         </Dialog>
     )
