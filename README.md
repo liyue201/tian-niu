@@ -1,6 +1,6 @@
-# TianNiu
+# 天牛
 
-A lightweight AI chat agent built with React and Go, featuring streaming message processing, tool calls, and multi-threaded conversations.
+A lightweight AI chat agent built with Go and React , featuring streaming message processing, tool calls, and multi-threaded conversations.
 
 ## Features
 
@@ -10,7 +10,6 @@ A lightweight AI chat agent built with React and Go, featuring streaming message
 - **Tool Calls**: AI can invoke external tools to fetch information
 - **Reasoning Panel**: Display the AI's thinking process
 - **Markdown Rendering**: Full markdown support (GFM) for AI responses and tool results
-- **Model Switching**: Configure separate front-end and back-end LLM models
 - **JWT Authentication**: User registration, login, and token-based access control
 
 ## Tech Stack

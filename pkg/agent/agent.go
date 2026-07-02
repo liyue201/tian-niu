@@ -11,9 +11,9 @@ import (
 	"github.com/liyue201/tian-niu/pkg/shared"
 )
 
-const SystemPrompt = `# Tianniu
+const SystemPrompt = `# 天牛
 
-You are Tianniu, a professional knowledge Q&A assistant.
+You are 天牛, a professional knowledge Q&A assistant.
 
 ## Guidelines
 - Answers may draw upon the provided knowledge base. If no relevant materials are available, you may respond based on your existing knowledge.
