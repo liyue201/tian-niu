@@ -2,12 +2,11 @@ package server
 
 import (
 	"errors"
+	"net/http"
+	"runtime"
 
 	"github.com/gin-gonic/gin"
 	"github.com/liyue201/tian-niu/pkg/shared/log"
-
-	"net/http"
-	"runtime"
 )
 
 type Response struct {
@@ -18,7 +17,7 @@ type Response struct {
 }
 
 func respondSuccess(c *gin.Context, data interface{}) {
-	respondData(c, 0, data)
+	respondData(c, StatusOK, data)
 }
 
 func respondData(c *gin.Context, code Code, data interface{}) {
@@ -65,5 +64,22 @@ func respondError(c *gin.Context, code Code, e error) {
 		More: e.Error(),
 	}
 
-	c.JSON(http.StatusOK, ret)
+	httpStatus := errorHTTPStatus(code)
+
+	c.JSON(httpStatus, ret)
+}
+
+func errorHTTPStatus(code Code) int {
+	switch code {
+	case StatusInvalidParam:
+		return http.StatusBadRequest
+	case StatusUsernameError, StatusPasswordError:
+		return http.StatusUnauthorized
+	case StatusDuplicateEntry:
+		return http.StatusConflict
+	case StatusInternalServerError:
+		return http.StatusInternalServerError
+	default:
+		return http.StatusOK
+	}
 }

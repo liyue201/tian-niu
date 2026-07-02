@@ -4,10 +4,7 @@ import "github.com/liyue201/tian-niu/pkg/model"
 
 func (r *Repository) GetConversationMessages(conversationID string, limit int) ([]*model.ChatMessage, error) {
 	var list []*model.ChatMessage
-	query := r.db.Order("created_at desc")
-	if conversationID != "" {
-		query = query.Where("conversation_id = ?", conversationID)
-	}
+	query := r.db.Where("conversation_id = ?", conversationID).Order("created_at desc")
 	if limit > 0 {
 		query = query.Limit(limit)
 	}

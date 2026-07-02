@@ -1,15 +1,29 @@
 package auth
 
 import (
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var secretKey = []byte("tian-niu-secret-key") // In production, read from environment variable
+var secretKey []byte
+
+func init() {
+	key := os.Getenv("JWT_SECRET")
+	if key == "" {
+		key = "tian-niu-dev-secret-change-in-production"
+		fmt.Fprintln(os.Stderr, "[WARNING] JWT_SECRET not set, using insecure default.")
+	}
+	secretKey = []byte(key)
+}
 
 // GenerateToken generates a JWT token
 func GenerateToken(userID, username string) (string, error) {
+	if len(secretKey) < 16 {
+		return "", fmt.Errorf("JWT secret key too short (must be >= 16 bytes)")
+	}
 	claims := jwt.MapClaims{
 		"user_id":  userID,
 		"username": username,
@@ -22,9 +36,9 @@ func GenerateToken(userID, username string) (string, error) {
 
 // ParseToken parses a JWT token
 func ParseToken(tokenString string) (jwt.MapClaims, error) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
 		return secretKey, nil
-	})
+	}, jwt.WithValidMethods([]string{"HS256"}))
 
 	if err != nil {
 		return nil, err

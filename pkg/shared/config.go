@@ -19,22 +19,6 @@ type ModelConfig struct {
 	ContextWindow int `json:"context_window"`
 }
 
-func NewModelConfig() ModelConfig {
-	return ModelConfig{
-		BaseURL:       getEnvDefault("OPENAI_BASE_URL", ""),
-		ApiKey:        getEnvDefault("OPENAI_API_KEY", ""),
-		Model:         getEnvDefault("OPENAI_MODEL", ""),
-		ContextWindow: 200000,
-	}
-}
-
-func getEnvDefault(key, defaultValue string) string {
-	if value, ok := os.LookupEnv(key); ok {
-		return value
-	}
-	return defaultValue
-}
-
 func LoadAppConfig(path string) (AppConfig, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {

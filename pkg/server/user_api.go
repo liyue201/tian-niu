@@ -1,7 +1,10 @@
 package server
 
 import (
+	"errors"
+
 	"github.com/gin-gonic/gin"
+	"github.com/liyue201/tian-niu/pkg/repository"
 	"github.com/liyue201/tian-niu/pkg/vo"
 )
 
@@ -15,6 +18,10 @@ func (s *Server) register(c *gin.Context) {
 
 	res, err := s.svc.Register(req)
 	if err != nil {
+		if errors.Is(err, repository.ErrDuplicateEntry) {
+			respondError(c, StatusDuplicateEntry, err)
+			return
+		}
 		respondError(c, StatusInternalServerError, err)
 		return
 	}

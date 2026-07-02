@@ -1,6 +1,8 @@
 package server
 
 import (
+	"runtime/debug"
+
 	"github.com/gin-gonic/gin"
 	"github.com/liyue201/tian-niu/pkg/agent"
 	"github.com/liyue201/tian-niu/pkg/shared/log"
@@ -10,8 +12,9 @@ import (
 // GET /conversation/:conversation_id/message
 func (s *Server) listMessages(c *gin.Context) {
 	conversationID := c.Param("conversation_id")
+	userID := c.MustGet("userID").(string)
 
-	result, err := s.svc.ListMessages(conversationID)
+	result, err := s.svc.ListMessages(userID, conversationID)
 	if err != nil {
 		respondError(c, StatusInternalServerError, err)
 		return
@@ -40,10 +43,19 @@ func (s *Server) createMessage(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 
 	go func() {
-		defer close(eventCh)
+		defer func() {
+			if r := recover(); r != nil {
+				log.Errorf("panic in createMessage goroutine: %v\n%s", r, debug.Stack())
+			}
+			close(eventCh)
+		}()
 		if err := s.svc.CreateMessage(c.Request.Context(), conversationID, req, eventCh); err != nil {
 			errMsg := err.Error()
-			eventCh <- vo.SSEMessageVO{Event: agent.EventError, Content: &errMsg}
+			// Use non-blocking send to avoid deadlock when client has disconnected
+			select {
+			case eventCh <- vo.SSEMessageVO{Event: agent.EventError, Content: &errMsg}:
+			default:
+			}
 			return
 		}
 	}()
@@ -51,7 +63,7 @@ func (s *Server) createMessage(c *gin.Context) {
 	for {
 		select {
 		case <-c.Request.Context().Done():
-			log.Warn("Server is shutting down. Exiting...")
+			log.Warn("client disconnected, aborting SSE stream")
 			return
 		case e, ok := <-eventCh:
 			if !ok {

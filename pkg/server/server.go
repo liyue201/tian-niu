@@ -24,13 +24,13 @@ type Server struct {
 }
 
 func NewServer(addr string, db *repository.Repository, agent *agent.Agent) *Server {
-	scv := service.NewService(db, agent)
+	svc := service.NewService(db, agent)
 	engine := gin.New()
 	gin.SetMode(gin.ReleaseMode)
 	engine.Use(gin.Recovery(), gin.Logger())
 
 	s := &Server{
-		svc:        scv,
+		svc:        svc,
 		httpServer: &http.Server{Addr: addr, Handler: engine},
 	}
 	s.setupRouter(engine)
@@ -38,6 +38,8 @@ func NewServer(addr string, db *repository.Repository, agent *agent.Agent) *Serv
 }
 
 func (s *Server) setupRouter(g *gin.Engine) {
+	s.setCors(g)
+
 	api := g.Group("/api")
 
 	// Public routes (no authentication required)

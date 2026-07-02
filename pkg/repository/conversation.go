@@ -14,11 +14,7 @@ func (r *Repository) GetConversationByID(id string) (*model.Conversation, error)
 
 func (r *Repository) GetUserConversations(userID string) ([]*model.Conversation, error) {
 	var convs []*model.Conversation
-	query := r.db.Order("created_at desc")
-	if userID != "" {
-		query = query.Where("user_id = ?", userID)
-	}
-	if err := query.Find(&convs).Error; err != nil {
+	if err := r.db.Where("user_id = ?", userID).Order("created_at desc").Find(&convs).Error; err != nil {
 		return nil, err
 	}
 	return convs, nil

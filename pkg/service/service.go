@@ -44,6 +44,9 @@ func (s *Service) Register(req vo.RegisterReq) (vo.UserVO, error) {
 
 	err = s.db.Create(user)
 	if err != nil {
+		if errors.Is(err, repository.ErrDuplicateEntry) {
+			return vo.UserVO{}, errors.New("username already exists")
+		}
 		return vo.UserVO{}, err
 	}
 	return vo.UserVO{
@@ -151,13 +154,21 @@ func (s *Service) DeleteConversation(userId, conversationID string) error {
 		return errors.New("user_id must match the one in the token")
 	}
 
-	if err := s.db.Delete(conv); err != nil {
+	if err := s.db.DeleteConversationWithMessages(conversationID); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *Service) ListMessages(conversationID string) ([]vo.ChatMessageVO, error) {
+func (s *Service) ListMessages(userID, conversationID string) ([]vo.ChatMessageVO, error) {
+	// Verify conversation belongs to the authenticated user
+	conv, err := s.db.GetConversationByID(conversationID)
+	if err != nil {
+		return nil, err
+	}
+	if conv.UserID != userID {
+		return nil, errors.New("user_id must match the one in the token")
+	}
 
 	msgs, err := s.db.GetConversationMessages(conversationID, -1)
 	if err != nil {
@@ -203,19 +214,24 @@ func (s *Service) CreateMessage(ctx context.Context, conversationID string, req 
 	createdAt := time.Now().Unix()
 
 	eventCh := make(chan agent.StreamEvent, 64)
-	defer func() {
-		close(eventCh)
-	}()
+	defer close(eventCh)
 
+	// Bridge agent events -> SSE events with non-blocking send to avoid
+	// goroutine leak when the client disconnects mid-stream.
 	go func() {
 		for e := range eventCh {
-			voCh <- toSSEMessage(msgID, e)
+			select {
+			case voCh <- toSSEMessage(msgID, e):
+			default:
+				return
+			}
 		}
 	}()
 
 	result, runErr := s.agent.RunStreaming(ctx, history, req.Query, eventCh)
 	if runErr != nil {
 		log.Warnf("run streaming error: %v", runErr)
+		return runErr
 	}
 
 	roundsJSON, _ := json.Marshal(result.Rounds)

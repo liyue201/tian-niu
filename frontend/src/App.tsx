@@ -28,7 +28,7 @@ function AssistantUIApp() {
 
     return (
         <BabyAgentRuntimeProvider>
-            <div style={{display: 'flex', width: '100%', height: '100', overflow: 'hidden'}}>
+            <div style={{display: 'flex', width: '100%', height: '100vh', overflow: 'hidden'}}>
                 <AssistantThreadList/>
                 <AssistantThread/>
             </div>
