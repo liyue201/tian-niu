@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/liyue201/tian-niu/pkg/agent"
@@ -33,7 +34,15 @@ func main() {
 		panic(err)
 	}
 
-	a := agent.NewAgent(appConf.LLMProviders.FrontModel, agent.SystemPrompt, []tool.Tool{})
+	bashConf := appConf.BashTool
+	bashToolConfig := tool.BashToolConfig{
+		Timeout:        time.Duration(bashConf.TimeoutSeconds) * time.Second,
+		MaxOutput:      bashConf.MaxOutputKB * 1024,
+		WorkDir:        bashConf.WorkDir,
+		Disabled:       bashConf.Disabled,
+		AllowDangerous: bashConf.AllowDangerous,
+	}
+	a := agent.NewAgent(appConf.LLMProviders.FrontModel, agent.SystemPrompt, []tool.Tool{tool.NewBashTool(bashToolConfig)})
 	s := server.NewServer(":8080", db, a)
 	s.Run()
 	defer s.Stop()
