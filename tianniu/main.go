@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"os/signal"
 	"syscall"
@@ -42,7 +43,24 @@ func main() {
 		Disabled:       bashConf.Disabled,
 		AllowDangerous: bashConf.AllowDangerous,
 	}
-	a := agent.NewAgent(appConf.LLMProviders.FrontModel, agent.SystemPrompt, []tool.Tool{tool.NewBashTool(bashToolConfig)})
+
+	mcpServerMap, err := shared.LoadMcpServerConfig("mcp-server.json")
+	if err != nil {
+		log.Errorf("Failed to load MCP server configuration: %v", err)
+	}
+	ctx := context.Background()
+	mcpClients := make([]*agent.McpClient, 0)
+	for k, v := range mcpServerMap {
+		mcpClient := agent.NewMcpToolProvider(k, v)
+		if err := mcpClient.RefreshTools(ctx); err != nil {
+			log.Errorf("Failed to refresh tools for MCP server %s: %v", k, err)
+			continue
+		}
+		mcpClients = append(mcpClients, mcpClient)
+	}
+
+	a := agent.NewAgent(appConf.LLMProviders.FrontModel, agent.SystemPrompt,
+		[]tool.Tool{tool.NewBashTool(bashToolConfig)}, mcpClients)
 	s := server.NewServer(":8080", db, a)
 	s.Run()
 	defer s.Stop()
