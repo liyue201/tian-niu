@@ -3,9 +3,11 @@ package agent
 import (
 	"sync"
 
+	"github.com/liyue201/tian-niu/pkg/agent/context"
+	"github.com/liyue201/tian-niu/pkg/agent/llm"
 	"github.com/liyue201/tian-niu/pkg/agent/mcp"
+	"github.com/liyue201/tian-niu/pkg/agent/memory"
 	"github.com/liyue201/tian-niu/pkg/agent/tool"
-	ctxengine "github.com/liyue201/tian-niu/pkg/context"
 	"github.com/liyue201/tian-niu/pkg/repository"
 	"github.com/liyue201/tian-niu/pkg/shared"
 	"github.com/openai/openai-go/v3"
@@ -18,7 +20,8 @@ type Manager struct {
 	tools        []tool.Tool
 	systemPrompt string
 	mcpClients   []*mcp.Client
-	policies     []ctxengine.Policy
+	policies     []context.Policy
+	memory       memory.Memory
 
 	agents map[string]*Agent
 	sync.RWMutex
@@ -30,21 +33,23 @@ func NewManager(
 	systemPrompt string,
 	tools []tool.Tool,
 	mcpClients []*mcp.Client,
-	policies []ctxengine.Policy) *Manager {
+	policies []context.Policy,
+	memory memory.Memory) *Manager {
 	manger := &Manager{
 		repo:         repo,
 		modelConf:    modelConf,
-		client:       NewLLMClient(modelConf),
+		client:       llm.NewLLMClient(modelConf),
 		tools:        tools,
 		systemPrompt: systemPrompt,
 		mcpClients:   mcpClients,
 		policies:     policies,
+		memory:       memory,
 		agents:       make(map[string]*Agent),
 	}
 	return manger
 }
 
-func (m *Manager) GetAgent(conversationId string) *Agent {
+func (m *Manager) GetAgent(userId, conversationId string) *Agent {
 	m.RLock()
 	agent, ok := m.agents[conversationId]
 	if ok {
@@ -56,7 +61,7 @@ func (m *Manager) GetAgent(conversationId string) *Agent {
 	m.Lock()
 	defer m.Unlock()
 
-	engine := ctxengine.NewContextEngine(conversationId, m.policies, m.repo)
+	engine := context.NewContextEngine(m.memory, userId, conversationId, m.policies, m.repo)
 	agent = NewAgent(m.modelConf, m.systemPrompt, m.tools, m.mcpClients, engine)
 	m.agents[conversationId] = agent
 

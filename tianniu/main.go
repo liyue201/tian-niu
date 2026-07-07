@@ -9,9 +9,10 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/liyue201/tian-niu/pkg/agent"
+	context2 "github.com/liyue201/tian-niu/pkg/agent/context"
 	"github.com/liyue201/tian-niu/pkg/agent/mcp"
+	"github.com/liyue201/tian-niu/pkg/agent/memory"
 	"github.com/liyue201/tian-niu/pkg/agent/tool"
-	ctxengine "github.com/liyue201/tian-niu/pkg/context"
 	"github.com/liyue201/tian-niu/pkg/repository"
 	"github.com/liyue201/tian-niu/pkg/server"
 	"github.com/liyue201/tian-niu/pkg/shared"
@@ -75,14 +76,17 @@ func main() {
 	}
 
 	// Create context engine and policies
-	store := repository_storage.NewRepositoryStorage(db)
-	summarizer := ctxengine.NewLLMSummarizer(appConf.LLMProviders.BackModel, 200)
+	storage := repository_storage.NewRepositoryStorage(db)
+	summarizer := context2.NewLLMSummarizer(appConf.LLMProviders.BackModel, 200)
 
-	policies := []ctxengine.Policy{
-		ctxengine.NewOffloadPolicy(store, 0.4, 0, 100),
-		ctxengine.NewSummaryPolicy(summarizer, 10, 20, 0.6),
-		ctxengine.NewTruncatePolicy(0, 0.85),
+	policies := []context2.Policy{
+		context2.NewOffloadPolicy(storage, 0.4, 0, 100),
+		context2.NewSummaryPolicy(summarizer, 10, 20, 0.6),
+		context2.NewTruncatePolicy(0, 0.85),
 	}
+
+	memoryUpdater := memory.NewLLMMemoryUpdater(appConf.LLMProviders.BackModel)
+	multiLevelMemory := memory.NewMultiLevelMemory(storage, memoryUpdater)
 
 	mgr := agent.NewManager(
 		db,
@@ -90,7 +94,8 @@ func main() {
 		agent.SystemPrompt,
 		[]tool.Tool{tool.NewBashTool(appConf.BashTool)},
 		mcpClients,
-		policies)
+		policies,
+		multiLevelMemory)
 
 	s := server.NewServer(":8080", db, mgr)
 	s.Run()

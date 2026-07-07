@@ -3,10 +3,9 @@ package context
 import (
 	"context"
 	"fmt"
-	"os"
-	"runtime"
 	"strings"
 
+	"github.com/liyue201/tian-niu/pkg/agent/memory"
 	"github.com/liyue201/tian-niu/pkg/repository"
 	"github.com/liyue201/tian-niu/pkg/shared"
 	"github.com/liyue201/tian-niu/pkg/shared/log"
@@ -19,6 +18,8 @@ type messageWrap struct {
 }
 
 type Engine struct {
+	memory               memory.Memory
+	userId               string
 	conversationId       string
 	repo                 *repository.Repository
 	systemPromptTemplate string
@@ -41,8 +42,10 @@ type TurnDraft struct {
 	NewMessages []shared.OpenAIMessage
 }
 
-func NewContextEngine(conversationId string, policies []Policy, repo *repository.Repository) *Engine {
+func NewContextEngine(memory memory.Memory, userId string, conversationId string, policies []Policy, repo *repository.Repository) *Engine {
 	return &Engine{
+		memory:         memory,
+		userId:         userId,
 		conversationId: conversationId,
 		repo:           repo,
 		policies:       policies,
@@ -101,6 +104,11 @@ func (c *Engine) CommitTurn(ctx context.Context, draft TurnDraft, usage Usage) e
 	if err := c.applyPolicies(ctx); err != nil {
 		return err
 	}
+
+	err := c.memory.Update(ctx, c.userId, c.conversationId, draft.NewMessages)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -150,11 +158,12 @@ func (c *Engine) SetPolicyEventHook(hook func(policyName string, running bool, e
 
 func (c *Engine) BuildSystemPrompt() string {
 	replaceMap := make(map[string]string)
-	replaceMap["{runtime}"] = runtime.GOOS
-	cwd, _ := os.Getwd()
-	replaceMap["{workspace_path}"] = cwd
 
-	// todo integrate memory
+	if c.memory != nil {
+		replaceMap["{memory}"] = c.memory.String(c.userId, c.conversationId)
+	} else {
+		replaceMap["{memory}"] = ""
+	}
 
 	prompt := c.systemPromptTemplate
 	for k, v := range replaceMap {

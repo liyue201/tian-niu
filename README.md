@@ -11,6 +11,7 @@ A lightweight AI chat agent built with Go and React, featuring streaming message
 - **MCP Integration**: Connect to any MCP-compatible tool server (stdio / HTTP) to extend agent capabilities
 - **Reasoning Panel**: Display the AI's thinking process (DeepSeek-R1, QwQ, etc.)
 - **Bash Tool**: Execute shell commands with built-in security restrictions (dangerous pattern blocking, timeout, output limits, env filtering)
+- **Memory System**: Multi-level memory management (global + workspace) for context retention
 - **Markdown Rendering**: Full markdown support (GFM) for AI responses and tool results
 - **JWT Authentication**: User registration, login, and token-based access control
 - **Context Management**: Automatic message summarization and content offloading to manage context window
@@ -48,6 +49,12 @@ Edit `config.json` with your LLM provider and tool settings:
 {
   "llm_providers": {
     "front_model": {
+      "base_url": "https://api.openai.com/v1",
+      "model": "gpt-4o",
+      "api_key": "your-api-key",
+      "context_window": 200000
+    },
+    "back_model": {
       "base_url": "https://api.openai.com/v1",
       "model": "gpt-4o",
       "api_key": "your-api-key",

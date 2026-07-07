@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/liyue201/tian-niu/pkg/agent/llm"
 	"github.com/liyue201/tian-niu/pkg/shared"
 	"github.com/openai/openai-go/v3"
-	"github.com/openai/openai-go/v3/option"
 )
 
 type Summarizer interface {
@@ -56,18 +56,9 @@ func (s *LLMSummarizer) GetSummaryInputTokenLimit() int {
 	return s.modelConf.ContextWindow / 2
 }
 
-func NewLLMClient(modelConf shared.ModelConfig) openai.Client {
-	client := openai.NewClient(
-		option.WithBaseURL(modelConf.BaseURL),
-		option.WithAPIKey(modelConf.ApiKey),
-		option.WithHeader("X-Title", "Tianniu"),
-	)
-	return client
-}
-
 func NewLLMSummarizer(modelConf shared.ModelConfig, summaryCharLimit int) *LLMSummarizer {
 	return &LLMSummarizer{
-		llmClient:        NewLLMClient(modelConf),
+		llmClient:        llm.NewLLMClient(modelConf),
 		modelConf:        modelConf,
 		summaryCharLimit: summaryCharLimit,
 	}

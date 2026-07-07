@@ -5,27 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 
+	ctxengine "github.com/liyue201/tian-niu/pkg/agent/context"
+	"github.com/liyue201/tian-niu/pkg/agent/llm"
 	"github.com/liyue201/tian-niu/pkg/agent/mcp"
-	ctxengine "github.com/liyue201/tian-niu/pkg/context"
-	"github.com/openai/openai-go/v3"
-	"github.com/openai/openai-go/v3/option"
-
 	"github.com/liyue201/tian-niu/pkg/agent/tool"
 	"github.com/liyue201/tian-niu/pkg/shared"
+	"github.com/openai/openai-go/v3"
 )
-
-const SystemPrompt = `# 天牛
-
-You are 天牛, a professional knowledge Q&A assistant.
-
-## Guidelines
-- Answers may draw upon the provided knowledge base. If no relevant materials are available, you may respond based on your existing knowledge.
-- For complex questions, conduct step-by-step reasoning: break down requirements, filter documents, and verify information before reaching conclusions. Separate reasoning processes from the final response.
-- When faced with vague or incomplete inquiries, proactively guide users to supply critical conditions; do not cobble together invalid answers.
-- Present comparison questions in structured tables, and provide scenario-based selection recommendations at the end.
-- Keep answers concise and well-organized with clear paragraphs and bullet points. Use precise professional terminology and avoid irrelevant chatter.
-- Wrap all code snippets with Markdown syntax highlighting blocks.
-`
 
 type Agent struct {
 	model         string
@@ -36,15 +22,6 @@ type Agent struct {
 	contextEngine *ctxengine.Engine
 }
 
-func NewLLMClient(modelConf shared.ModelConfig) openai.Client {
-	client := openai.NewClient(
-		option.WithBaseURL(modelConf.BaseURL),
-		option.WithAPIKey(modelConf.ApiKey),
-		option.WithHeader("X-Title", "Tianniu"),
-	)
-	return client
-}
-
 func NewAgent(modelConf shared.ModelConfig,
 	systemPrompt string,
 	tools []tool.Tool,
@@ -52,7 +29,7 @@ func NewAgent(modelConf shared.ModelConfig,
 	contextEngine *ctxengine.Engine) *Agent {
 	a := &Agent{
 		model:         modelConf.Model,
-		client:        NewLLMClient(modelConf),
+		client:        llm.NewLLMClient(modelConf),
 		nativeTools:   make(map[tool.AgentTool]tool.Tool),
 		systemPrompt:  systemPrompt,
 		mcpClients:    make(map[string]*mcp.Client),
