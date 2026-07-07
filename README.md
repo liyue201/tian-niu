@@ -13,6 +13,7 @@ A lightweight AI chat agent built with Go and React, featuring streaming message
 - **Bash Tool**: Execute shell commands with built-in security restrictions (dangerous pattern blocking, timeout, output limits, env filtering)
 - **Markdown Rendering**: Full markdown support (GFM) for AI responses and tool results
 - **JWT Authentication**: User registration, login, and token-based access control
+- **Context Management**: Automatic message summarization and content offloading to manage context window
 
 ## Tech Stack
 
@@ -30,24 +31,6 @@ A lightweight AI chat agent built with Go and React, featuring streaming message
 - MCP Go SDK v1
 - GORM + SQLite
 - JWT authentication (golang-jwt/v5)
-
-## Architecture
-
-```
-tianniu/main.go              — Entry point
-pkg/
-  agent/                     — Agent core (LLM loop + tool dispatch)
-    tool/                    — Native tool definitions (Bash, etc.)
-    mcp.go                   — MCP client integration
-    stream.go                — Streaming event types
-  server/                    — HTTP layer (Gin routes + SSE)
-  service/                   — Business logic
-  repository/                — Data access (GORM + SQLite)
-  model/                     — Data models
-  vo/                        — View objects (request/response/SSE)
-  auth/                      — JWT authentication
-  shared/                    — Shared utilities & config
-```
 
 ## Quick Start
 
@@ -150,9 +133,11 @@ docker compose up -d --build
 
 ## Configuration
 
-### Bash Tool Security
+### Built-in Tools
 
-The built-in Bash tool executes shell commands with multiple security layers:
+#### Bash Tool
+
+Execute shell commands with multiple security layers:
 
 | Setting | Description | Default |
 |---------|-------------|---------|
@@ -167,6 +152,29 @@ Security features:
 - **Sensitive environment filtering**: Environment variables with prefixes `JWT_`, `API_KEY`, `SECRET`, `TOKEN`, `PASSWORD`, `AWS_`, etc. are stripped from the command's environment
 - **Output truncation**: Prevents memory exhaustion from large command output
 - **Command length limit**: Maximum 4096 characters
+
+
+### Context Management Policies
+
+The agent automatically manages context window usage through two policies:
+
+#### Summary Policy
+
+When context usage exceeds the threshold, older messages are summarized to reduce token count:
+
+- **KeepRecentMessages**: Number of recent messages to skip (avoid summarizing latest conversation)
+- **SummaryBatchSize**: Maximum messages to summarize at one time
+- **UsageThreshold**: Context usage percentage that triggers summarization
+
+#### Offload Policy
+
+When context usage exceeds the threshold, large tool response content is offloaded to storage:
+
+- **KeepRecentMessages**: Number of recent messages to skip
+- **PreviewCharLimit**: Number of characters to keep in context as preview
+- **UsageThreshold**: Context usage percentage that triggers offloading
+
+When content is offloaded, the agent replaces it with a preview and provides a `load_storage(key="...")` call suggestion to retrieve the full content when needed.
 
 ### MCP Server Configuration
 

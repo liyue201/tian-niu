@@ -129,8 +129,6 @@ func (a *Agent) RunStreaming(ctx context.Context, query string, eventCh chan<- S
 	messages = append(messages, draft.NewMessages...)
 	var usage openai.CompletionUsage
 
-	roundMessages := []shared.OpenAIMessage{openai.UserMessage(query)}
-
 	var finalResponse string
 
 	for {
@@ -173,7 +171,6 @@ func (a *Agent) RunStreaming(ctx context.Context, query string, eventCh chan<- S
 		message := acc.Choices[0].Message
 		assistantMsg := message.ToParam()
 		messages = append(messages, assistantMsg)
-		roundMessages = append(roundMessages, assistantMsg)
 
 		// No tool calls, end loop
 		if len(message.ToolCalls) == 0 {
@@ -194,7 +191,9 @@ func (a *Agent) RunStreaming(ctx context.Context, query string, eventCh chan<- S
 
 			toolMsg := openai.ToolMessage(toolResult, toolCall.ID)
 			messages = append(messages, toolMsg)
-			roundMessages = append(roundMessages, toolMsg)
+
+			messages = append(messages, toolMsg)
+			draft.NewMessages = append(draft.NewMessages, toolMsg)
 		}
 
 		// Check if context is canceled
@@ -212,7 +211,7 @@ func (a *Agent) RunStreaming(ctx context.Context, query string, eventCh chan<- S
 
 	return RunResult{
 		Response: finalResponse,
-		Rounds:   roundMessages,
+		Rounds:   messages,
 		Usage:    usage,
 	}, nil
 }

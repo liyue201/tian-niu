@@ -2,6 +2,7 @@ package context
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -36,8 +37,8 @@ func (p *OffloadPolicy) Name() string {
 	return "offload"
 }
 
-func (p *OffloadPolicy) makeStorageKey(offloadIndex int) string {
-	return fmt.Sprintf("/offload/%s_%d", time.Now().Format("20060102_150405"), offloadIndex)
+func (p *OffloadPolicy) makeStorageKey(conversationId string, offloadIndex int) string {
+	return fmt.Sprintf("/offload/%s/%s_%d", conversationId, time.Now().Format("20060102_150405"), offloadIndex)
 }
 
 func (p *OffloadPolicy) Apply(ctx context.Context, engine *Engine) (PolicyResult, error) {
@@ -46,6 +47,11 @@ func (p *OffloadPolicy) Apply(ctx context.Context, engine *Engine) (PolicyResult
 			Messages:      engine.messages,
 			ContextTokens: engine.contextTokens,
 		}, nil
+	}
+
+	conversationId, ok := ctx.Value("conversationId").(string)
+	if !ok {
+		return PolicyResult{}, errors.New("conversationId not found in context")
 	}
 
 	// Copy message list to avoid modifying original data
@@ -74,7 +80,7 @@ func (p *OffloadPolicy) Apply(ctx context.Context, engine *Engine) (PolicyResult
 		// Calculate token count of original message
 		oldTokens := messages[i].Tokens
 
-		key := p.makeStorageKey(i)
+		key := p.makeStorageKey(conversationId, i)
 		if err := p.Storage.Store(ctx, key, *contentStr); err != nil {
 			log.Printf("failed to store offload message: %v", err)
 			continue

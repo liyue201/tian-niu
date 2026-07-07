@@ -213,6 +213,8 @@ func (s *Service) CreateMessage(ctx context.Context, conversationID string, req 
 	go func() {
 		for e := range eventCh {
 			select {
+			case <-ctx.Done():
+				return
 			case voCh <- toSSEMessage(msgID, e):
 			default:
 				return
