@@ -11,14 +11,18 @@ import (
 	"github.com/liyue201/tian-niu/pkg/agent"
 	"github.com/liyue201/tian-niu/pkg/agent/mcp"
 	"github.com/liyue201/tian-niu/pkg/agent/tool"
+	ctxengine "github.com/liyue201/tian-niu/pkg/context"
 	"github.com/liyue201/tian-niu/pkg/repository"
 	"github.com/liyue201/tian-niu/pkg/server"
+	"github.com/liyue201/tian-niu/pkg/shared"
 	"github.com/liyue201/tian-niu/pkg/shared/log"
+	"github.com/liyue201/tian-niu/pkg/storage/repository_storage"
 )
 
 type AppConfig struct {
 	LLMProviders struct {
-		FrontModel agent.ModelConfig `json:"front_model"`
+		FrontModel shared.ModelConfig `json:"front_model"`
+		BackModel  shared.ModelConfig `json:"back_model"`
 	} `json:"llm_providers"`
 	BashTool tool.BashToolConfig `json:"bash_tool"`
 }
@@ -70,8 +74,22 @@ func main() {
 		mcpClients = append(mcpClients, mcpClient)
 	}
 
-	a := agent.NewAgent(appConf.LLMProviders.FrontModel, agent.SystemPrompt,
-		[]tool.Tool{tool.NewBashTool(appConf.BashTool)}, mcpClients)
+	// 创建上下文引擎和 policy
+	store := repository_storage.NewRepositoryStorage(db)
+	summarizer := ctxengine.NewLLMSummarizer(appConf.LLMProviders.BackModel, 200)
+
+	policies := []ctxengine.Policy{
+		ctxengine.NewOffloadPolicy(store, 0.4, 0, 100),
+		ctxengine.NewSummaryPolicy(summarizer, 10, 20, 0.6),
+		ctxengine.NewTruncatePolicy(0, 0.85),
+	}
+	contextEngine := ctxengine.NewContextEngine(policies)
+
+	a := agent.NewAgent(appConf.LLMProviders.FrontModel,
+		agent.SystemPrompt,
+		[]tool.Tool{tool.NewBashTool(appConf.BashTool)},
+		mcpClients,
+		contextEngine)
 	s := server.NewServer(":8080", db, a)
 	s.Run()
 	defer s.Stop()
