@@ -133,7 +133,7 @@ func (c *Engine) BuildSystemPrompt() string {
 	cwd, _ := os.Getwd()
 	replaceMap["{workspace_path}"] = cwd
 
-	// todo 集成 memory
+	// todo integrate memory
 
 	prompt := c.systemPromptTemplate
 	for k, v := range replaceMap {
@@ -142,7 +142,7 @@ func (c *Engine) BuildSystemPrompt() string {
 	return prompt
 }
 
-// Reset 清空所有消息（保留 system prompt）
+// Reset clears all messages (system prompt is preserved)
 func (c *Engine) Reset() {
 	c.messages = make([]messageWrap, 0)
 	c.contextTokens = 0

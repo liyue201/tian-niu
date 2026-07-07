@@ -3,9 +3,9 @@ package context
 import "context"
 
 type TruncatePolicy struct {
-	// KeepRecentMessages 表示最少保留的最近消息数量。
+	// KeepRecentMessages indicates the minimum number of recent messages to keep.
 	KeepRecentMessages int
-	// UsageThreshold 表示上下文使用率超过该值时触发截断。
+	// UsageThreshold triggers truncation when context usage exceeds this value.
 	UsageThreshold float64
 }
 
@@ -28,10 +28,10 @@ func (p *TruncatePolicy) Apply(ctx context.Context, engine *Engine) (PolicyResul
 		}, nil
 	}
 
-	// 准备截断的前 toRemove 条消息
+	// Prepare to remove the first toRemove messages
 	toRemove := len(engine.messages) - p.KeepRecentMessages
 
-	// 在 0 ~ toRemove - 1 中找到最后一次 User 消息，保留这个 User 之后的消息，截断之前所有的历史
+	// Find the last User message in 0 ~ toRemove-1, keep messages after this User, truncate all history before
 	removeIdx := toRemove - 1
 	for i := toRemove - 1; i >= 0; i-- {
 		if engine.messages[i].Message.OfUser != nil {
@@ -40,8 +40,8 @@ func (p *TruncatePolicy) Apply(ctx context.Context, engine *Engine) (PolicyResul
 		}
 	}
 
-	// 如果没有找到 user 消息，或者 removeIdx 为 0，则不删除任何消息
-	// 这样可以确保不会删除所有消息
+	// If no user message found or removeIdx is 0, do not remove any messages
+	// This ensures we never delete all messages
 	if removeIdx <= 0 {
 		return PolicyResult{
 			Messages:      engine.messages,

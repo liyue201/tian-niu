@@ -74,7 +74,7 @@ func main() {
 		mcpClients = append(mcpClients, mcpClient)
 	}
 
-	// 创建上下文引擎和 policy
+	// Create context engine and policies
 	store := repository_storage.NewRepositoryStorage(db)
 	summarizer := ctxengine.NewLLMSummarizer(appConf.LLMProviders.BackModel, 200)
 

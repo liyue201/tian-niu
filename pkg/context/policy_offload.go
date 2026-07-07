@@ -13,13 +13,13 @@ import (
 )
 
 type OffloadPolicy struct {
-	// Storage 用于保存被卸载的长文本内容。
+	// Storage is used to save offloaded long text content.
 	Storage storage.Storage
-	// UsageThreshold 表示上下文使用率超过该值时触发卸载。
+	// UsageThreshold triggers offloading when context usage exceeds this value.
 	UsageThreshold float64
-	// KeepRecentMessages 表示跳过最后 N 条消息，避免影响最新对话。
+	// KeepRecentMessages skips the last N messages to avoid affecting the latest conversation.
 	KeepRecentMessages int
-	// PreviewCharLimit 表示卸载后在上下文里保留的字符数。
+	// PreviewCharLimit is the number of characters to keep in context after offloading.
 	PreviewCharLimit int
 }
 
@@ -48,7 +48,7 @@ func (p *OffloadPolicy) Apply(ctx context.Context, engine *Engine) (PolicyResult
 		}, nil
 	}
 
-	// 复制消息列表，避免修改原始数据
+	// Copy message list to avoid modifying original data
 	messages := make([]messageWrap, len(engine.messages))
 	copy(messages, engine.messages)
 	contextTokens := engine.contextTokens
@@ -56,7 +56,7 @@ func (p *OffloadPolicy) Apply(ctx context.Context, engine *Engine) (PolicyResult
 	offloadCount := len(messages) - p.KeepRecentMessages
 
 	for i := 0; i < offloadCount; i++ {
-		// 只卸载 tool 类型
+		// Only offload tool type messages
 		if shared.GetRoleName(messages[i].Message) != "tool" {
 			continue
 		}
@@ -66,12 +66,12 @@ func (p *OffloadPolicy) Apply(ctx context.Context, engine *Engine) (PolicyResult
 		if !ok {
 			continue
 		}
-		// 不需要卸载
+		// No need to offload
 		if len(*contentStr) <= p.PreviewCharLimit {
 			continue
 		}
 
-		// 计算原始消息的 token 数
+		// Calculate token count of original message
 		oldTokens := messages[i].Tokens
 
 		key := p.makeStorageKey(i)
@@ -80,7 +80,7 @@ func (p *OffloadPolicy) Apply(ctx context.Context, engine *Engine) (PolicyResult
 			continue
 		}
 
-		// 构造卸载后的消息体正文
+		// Construct offloaded message content
 		abstract := (*contentStr)[0:p.PreviewCharLimit]
 		var b strings.Builder
 		b.WriteString(abstract)
@@ -88,10 +88,10 @@ func (p *OffloadPolicy) Apply(ctx context.Context, engine *Engine) (PolicyResult
 		b.WriteString(fmt.Sprintf("（更多内容已卸载，如需查看全文请使用 load_storage(key=\"%s\") 工具）\n", key))
 		newContent := b.String()
 
-		// 修改原始消息链中的消息
+		// Modify message in original message chain
 		newMessage := openai.ToolMessage(newContent, *engine.messages[i].Message.GetToolCallID())
 
-		// 计算新消息的 token 数并更新计数
+		// Calculate token count for new message and update total
 		newTokens := CountTokens(newMessage)
 		messages[i] = messageWrap{Message: newMessage, Tokens: newTokens}
 		contextTokens -= oldTokens - newTokens
