@@ -52,6 +52,12 @@ Edit `config.json` with your LLM provider and tool settings:
       "model": "gpt-4o",
       "api_key": "your-api-key",
       "context_window": 200000
+    },
+    "back_model": {
+      "base_url": "https://api.openai.com/v1",
+      "model": "gpt-4o",
+      "api_key": "your-api-key",
+      "context_window": 200000
     }
   },
   "bash_tool": {
