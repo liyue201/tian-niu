@@ -3,10 +3,12 @@ package context
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"runtime"
 	"strings"
 
+	"github.com/liyue201/tian-niu/pkg/repository"
 	"github.com/liyue201/tian-niu/pkg/shared"
 	"github.com/openai/openai-go/v3"
 )
@@ -17,6 +19,8 @@ type messageWrap struct {
 }
 
 type Engine struct {
+	conversationId       string
+	repo                 *repository.Repository
 	systemPromptTemplate string
 	messages             []messageWrap
 	policies             []Policy
@@ -37,11 +41,13 @@ type TurnDraft struct {
 	NewMessages []shared.OpenAIMessage
 }
 
-func NewContextEngine(policies []Policy) *Engine {
+func NewContextEngine(conversationId string, policies []Policy, repo *repository.Repository) *Engine {
 	return &Engine{
-		policies:      policies,
-		messages:      make([]messageWrap, 0),
-		contextWindow: 200000,
+		conversationId: conversationId,
+		repo:           repo,
+		policies:       policies,
+		messages:       make([]messageWrap, 0),
+		contextWindow:  200000,
 	}
 }
 
@@ -49,6 +55,21 @@ func (c *Engine) Init(systemPrompt string, budget TokenBudget) {
 	c.systemPromptTemplate = systemPrompt
 	if budget.ContextWindow > 0 {
 		c.contextWindow = budget.ContextWindow
+	}
+	// Build history from previous messages
+	historyMsgs, err := c.repo.GetConversationMessages(c.conversationId, c.contextWindow)
+	if err != nil {
+		log.Fatalf("load conversation messages: %v", err)
+		return
+	}
+	if len(historyMsgs) == 0 {
+		return
+	}
+	msgs := buildHistory(historyMsgs, historyMsgs[0].MessageID)
+
+	for i := range msgs {
+		msg := msgs[i]
+		c.messages = append(c.messages, messageWrap{Message: msg, Tokens: CountTokens(msg)})
 	}
 }
 

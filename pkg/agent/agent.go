@@ -120,17 +120,17 @@ type RunResult struct {
 
 // RunStreaming executes the agent loop, streaming output via eventCh, and returns RunResult when done.
 // history is the deserialized message list from all previous ChatMessage.Rounds in this conversation.
-func (a *Agent) RunStreaming(ctx context.Context, history []openai.ChatCompletionMessageParamUnion, query string, eventCh chan<- StreamEvent) (RunResult, error) {
-	// Build messages for this round: system + history + current user message
-	messages := make([]openai.ChatCompletionMessageParamUnion, 0, len(history)+2)
-	messages = append(messages, openai.SystemMessage(a.systemPrompt))
-	messages = append(messages, history...)
-	messages = append(messages, openai.UserMessage(query))
+func (a *Agent) RunStreaming(ctx context.Context, query string, eventCh chan<- StreamEvent) (RunResult, error) {
 
-	// roundMessages tracks new messages from this round (user + assistant + tool, excluding system and history)
+	draft := a.contextEngine.StartTurn(openai.UserMessage(query))
+	defer a.contextEngine.AbortTurn(draft)
+
+	messages := a.contextEngine.BuildRequestMessages()
+	messages = append(messages, draft.NewMessages...)
+	var usage openai.CompletionUsage
+
 	roundMessages := []shared.OpenAIMessage{openai.UserMessage(query)}
 
-	var usage openai.CompletionUsage
 	var finalResponse string
 
 	for {

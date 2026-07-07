@@ -83,14 +83,16 @@ func main() {
 		ctxengine.NewSummaryPolicy(summarizer, 10, 20, 0.6),
 		ctxengine.NewTruncatePolicy(0, 0.85),
 	}
-	contextEngine := ctxengine.NewContextEngine(policies)
 
-	a := agent.NewAgent(appConf.LLMProviders.FrontModel,
+	mgr := agent.NewManager(
+		db,
+		appConf.LLMProviders.FrontModel,
 		agent.SystemPrompt,
 		[]tool.Tool{tool.NewBashTool(appConf.BashTool)},
 		mcpClients,
-		contextEngine)
-	s := server.NewServer(":8080", db, a)
+		policies)
+
+	s := server.NewServer(":8080", db, mgr)
 	s.Run()
 	defer s.Stop()
 

@@ -130,7 +130,7 @@ type Tool struct {
 
 // ToolName returns the name exposed to the model; differs from the name sent to the MCP server
 func (t *Tool) ToolName() string {
-	return fmt.Sprintf("babyagent_mcp__%s__%s", t.client.Name(), t.toolName)
+	return fmt.Sprintf("tianniu_mcp__%s__%s", t.client.Name(), t.toolName)
 }
 
 func (t *Tool) Info() openai.ChatCompletionToolUnionParam {
