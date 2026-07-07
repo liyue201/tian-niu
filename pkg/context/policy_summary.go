@@ -2,7 +2,8 @@ package context
 
 import (
 	"context"
-	"log"
+
+	"github.com/liyue201/tian-niu/pkg/shared/log"
 
 	"github.com/liyue201/tian-niu/pkg/shared"
 	"github.com/openai/openai-go/v3"
@@ -85,6 +86,7 @@ func (p *SummaryPolicy) Apply(ctx context.Context, engine *Engine) (PolicyResult
 
 		batchSummary, err := p.Summarizer.Summarize(ctx, accumulatedSummary, batchMessages)
 		if err != nil {
+			log.Errorf("Summarize: %v", err)
 			return PolicyResult{}, err
 		}
 
@@ -93,7 +95,7 @@ func (p *SummaryPolicy) Apply(ctx context.Context, engine *Engine) (PolicyResult
 	}
 
 	if len(accumulatedSummary) == 0 {
-		log.Printf("no summary generated")
+		log.Infof("no summary generated")
 		return PolicyResult{
 			Messages:      engine.messages,
 			ContextTokens: engine.contextTokens,

@@ -3,13 +3,13 @@ package context
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"runtime"
 	"strings"
 
 	"github.com/liyue201/tian-niu/pkg/repository"
 	"github.com/liyue201/tian-niu/pkg/shared"
+	"github.com/liyue201/tian-niu/pkg/shared/log"
 	"github.com/openai/openai-go/v3"
 )
 
@@ -56,10 +56,10 @@ func (c *Engine) Init(systemPrompt string, budget TokenBudget) {
 	if budget.ContextWindow > 0 {
 		c.contextWindow = budget.ContextWindow
 	}
-	// Build history from previous messages
-	historyMsgs, err := c.repo.GetConversationMessages(c.conversationId, c.contextWindow)
+
+	historyMsgs, err := c.repo.GetConversationMessages(c.conversationId, 10)
 	if err != nil {
-		log.Fatalf("load conversation messages: %v", err)
+		log.Errorf("load conversation messages: %v", err)
 		return
 	}
 	if len(historyMsgs) == 0 {
@@ -105,7 +105,6 @@ func (c *Engine) CommitTurn(ctx context.Context, draft TurnDraft, usage Usage) e
 }
 
 func (c *Engine) AbortTurn(_ TurnDraft) {
-	// no-op: draft is only in-memory and never committed unless CommitTurn is called.
 }
 
 func (c *Engine) GetContextUsage() float64 {
@@ -124,6 +123,7 @@ func (c *Engine) recountTokens() {
 }
 
 func (c *Engine) applyPolicies(ctx context.Context) error {
+	ctx = context.WithValue(ctx, "conversationId", c.conversationId)
 	for _, policy := range c.policies {
 		if !policy.ShouldApply(ctx, c) {
 			continue
@@ -163,7 +163,6 @@ func (c *Engine) BuildSystemPrompt() string {
 	return prompt
 }
 
-// Reset clears all messages (system prompt is preserved)
 func (c *Engine) Reset() {
 	c.messages = make([]messageWrap, 0)
 	c.contextTokens = 0
