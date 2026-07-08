@@ -62,37 +62,6 @@ Refer to the workspace repository: https://github.com/tianniu-ai/tianniu-workspa
 | `JWT_SECRET` | Secret key for JWT token signing (≥16 bytes) | `tian-niu-dev-secret-change-in-production` |
 | `GIN_MODE` | Gin run mode (`debug`/`release`) | `debug` |
 
-## Configuration
-
-### Context Management Policies
-
-The agent automatically manages context window usage through two policies:
-
-#### Summary Policy
-
-When context usage exceeds the threshold, older messages are summarized to reduce token count:
-
-- **KeepRecentMessages**: Number of recent messages to skip (avoid summarizing latest conversation)
-- **SummaryBatchSize**: Maximum messages to summarize at one time
-- **UsageThreshold**: Context usage percentage that triggers summarization
-
-#### Offload Policy
-
-When context usage exceeds the threshold, large tool response content is offloaded to storage:
-
-- **KeepRecentMessages**: Number of recent messages to skip
-- **PreviewCharLimit**: Number of characters to keep in context as preview
-- **UsageThreshold**: Context usage percentage that triggers offloading
-
-When content is offloaded, the agent replaces it with a preview and provides a `load_storage(key="...")` call suggestion to retrieve the full content when needed.
-
-#### Truncate Policy
-
-When context usage exceeds the threshold, older messages are truncated to reduce token count:
-
-- **KeepRecentMessages**: Number of recent messages to skip
-- **UsageThreshold**: Context usage percentage that triggers truncation
-
 ### MCP Server Configuration
 
 MCP (Model Context Protocol) allows the agent to use external tool servers. Configure in `mcp-server.json`:
