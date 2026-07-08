@@ -68,7 +68,7 @@ func (c *Engine) Init(systemPrompt string, budget TokenBudget) {
 	if len(historyMsgs) == 0 {
 		return
 	}
-	msgs := buildHistory(historyMsgs, historyMsgs[0].MessageID)
+	msgs := buildHistory(historyMsgs, historyMsgs[0].ID)
 
 	for i := range msgs {
 		msg := msgs[i]

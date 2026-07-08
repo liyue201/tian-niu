@@ -3,7 +3,7 @@ package model
 import "gorm.io/gorm"
 
 type ChatMessage struct {
-	MessageID       string `gorm:"primaryKey"`
+	ID              string `gorm:"primaryKey"`
 	UserID          string `gorm:"index"`
 	ConversationID  string `gorm:"index"`
 	ParentMessageID string
