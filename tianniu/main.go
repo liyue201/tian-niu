@@ -16,8 +16,9 @@ import (
 	"github.com/liyue201/tian-niu/pkg/repository"
 	"github.com/liyue201/tian-niu/pkg/server"
 	"github.com/liyue201/tian-niu/pkg/shared"
-	"github.com/liyue201/tian-niu/pkg/shared/log"
-	"github.com/liyue201/tian-niu/pkg/storage/repository_storage"
+	_ "github.com/liyue201/tian-niu/pkg/shared/log"
+	"github.com/liyue201/tian-niu/pkg/storage/leveldb_storage"
+	log "github.com/sirupsen/logrus"
 )
 
 type AppConfig struct {
@@ -75,10 +76,19 @@ func main() {
 		mcpClients = append(mcpClients, mcpClient)
 	}
 
-	// Create context engine and policies
-	storage := repository_storage.NewRepositoryStorage(db)
-	summarizer := context2.NewLLMSummarizer(appConf.LLMProviders.BackModel, 200)
+	leveldbPath := os.Getenv("LEVELDB_PATH")
+	if leveldbPath == "" {
+		leveldbPath = "leveldb_data"
+	}
+	storage, err := leveldb_storage.NewLevelDBStorage(leveldbPath)
+	if err != nil {
+		log.Errorf("Failed to create storage: %v", err)
+		panic(err)
+	}
+	defer storage.Close()
 
+	// Create context engine and policies
+	summarizer := context2.NewLLMSummarizer(appConf.LLMProviders.BackModel, 200)
 	policies := []context2.Policy{
 		context2.NewOffloadPolicy(storage, 0.4, 0, 100),
 		context2.NewSummaryPolicy(summarizer, 10, 20, 0.6),

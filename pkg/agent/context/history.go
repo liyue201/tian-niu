@@ -19,7 +19,7 @@ func buildHistory(allMsgs []*model.ChatMessage, parentMessageID string) []shared
 	// Build id -> message index
 	index := make(map[string]*model.ChatMessage, len(allMsgs))
 	for i := range allMsgs {
-		index[allMsgs[i].MessageID] = allMsgs[i]
+		index[allMsgs[i].ID] = allMsgs[i]
 	}
 
 	// Trace from parentMessageID to root, collecting the path (order: leaf -> root)

@@ -8,8 +8,8 @@ import (
 	"github.com/liyue201/tian-niu/pkg/agent/memory"
 	"github.com/liyue201/tian-niu/pkg/repository"
 	"github.com/liyue201/tian-niu/pkg/shared"
-	"github.com/liyue201/tian-niu/pkg/shared/log"
 	"github.com/openai/openai-go/v3"
+	log "github.com/sirupsen/logrus"
 )
 
 type messageWrap struct {
@@ -68,7 +68,7 @@ func (c *Engine) Init(systemPrompt string, budget TokenBudget) {
 	if len(historyMsgs) == 0 {
 		return
 	}
-	msgs := buildHistory(historyMsgs, historyMsgs[0].MessageID)
+	msgs := buildHistory(historyMsgs, historyMsgs[0].ID)
 
 	for i := range msgs {
 		msg := msgs[i]

@@ -6,7 +6,7 @@ import (
 	"runtime"
 
 	"github.com/gin-gonic/gin"
-	"github.com/liyue201/tian-niu/pkg/shared/log"
+	log "github.com/sirupsen/logrus"
 )
 
 type Response struct {

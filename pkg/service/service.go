@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/liyue201/tian-niu/pkg/agent"
 	"github.com/liyue201/tian-niu/pkg/shared"
-	"github.com/liyue201/tian-niu/pkg/shared/log"
 	"github.com/liyue201/tian-niu/pkg/vo"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -178,7 +178,7 @@ func (s *Service) ListMessages(userID, conversationID string) ([]vo.ChatMessageV
 	result := make([]vo.ChatMessageVO, 0, len(msgs))
 	for _, msg := range msgs {
 		result = append(result, vo.ChatMessageVO{
-			MessageID:       msg.MessageID,
+			MessageID:       msg.ID,
 			ConversationID:  msg.ConversationID,
 			ParentMessageID: msg.ParentMessageID,
 			Query:           msg.Query,
@@ -234,7 +234,7 @@ func (s *Service) CreateMessage(ctx context.Context, conversationID string, req 
 	roundsJSON, _ := json.Marshal(result.Rounds)
 	usageJSON, _ := json.Marshal(result.Usage)
 	s.db.Create(&model.ChatMessage{
-		MessageID:       msgID,
+		ID:              msgID,
 		UserID:          req.UserID,
 		ConversationID:  conversationID,
 		ParentMessageID: req.ParentMessageID,
