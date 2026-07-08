@@ -14,7 +14,7 @@ import (
 	"github.com/liyue201/tian-niu/pkg/auth"
 	"github.com/liyue201/tian-niu/pkg/repository"
 	"github.com/liyue201/tian-niu/pkg/service"
-	"github.com/liyue201/tian-niu/pkg/shared/log"
+	log "github.com/sirupsen/logrus"
 )
 
 type Server struct {

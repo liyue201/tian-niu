@@ -16,8 +16,9 @@ import (
 	"github.com/liyue201/tian-niu/pkg/repository"
 	"github.com/liyue201/tian-niu/pkg/server"
 	"github.com/liyue201/tian-niu/pkg/shared"
-	"github.com/liyue201/tian-niu/pkg/shared/log"
-	"github.com/liyue201/tian-niu/pkg/storage/repository_storage"
+	_ "github.com/liyue201/tian-niu/pkg/shared/log"
+	"github.com/liyue201/tian-niu/pkg/storage/leveldb_storage"
+	log "github.com/sirupsen/logrus"
 )
 
 type AppConfig struct {
@@ -76,7 +77,17 @@ func main() {
 	}
 
 	// Create context engine and policies
-	storage := repository_storage.NewRepositoryStorage(db)
+	leveldbPath := os.Getenv("LEVELEDB_PATH")
+	if leveldbPath == "" {
+		leveldbPath = "leveldb_data"
+	}
+	storage, err := leveldb_storage.NewLevelDBStorage(leveldbPath)
+	if err != nil {
+		log.Errorf("Failed to create storage: %v", err)
+		panic(err)
+	}
+	defer storage.Close()
+
 	summarizer := context2.NewLLMSummarizer(appConf.LLMProviders.BackModel, 200)
 
 	policies := []context2.Policy{

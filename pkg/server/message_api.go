@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/liyue201/tian-niu/pkg/agent"
-	"github.com/liyue201/tian-niu/pkg/shared/log"
 	"github.com/liyue201/tian-niu/pkg/vo"
+	log "github.com/sirupsen/logrus"
 )
 
 // GET /conversation/:conversation_id/message

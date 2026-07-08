@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/liyue201/tian-niu/pkg/agent"
 	"github.com/liyue201/tian-niu/pkg/shared"
-	"github.com/liyue201/tian-niu/pkg/shared/log"
 	"github.com/liyue201/tian-niu/pkg/vo"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 )
 
