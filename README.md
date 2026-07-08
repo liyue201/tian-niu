@@ -135,6 +135,7 @@ docker compose up -d --build
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `DB_PATH` | SQLite database file path | `test.db` |
+| `LEVELDB_PATH` | LevelDB storage path for memory and offloaded content | `leveldb_data` |
 | `JWT_SECRET` | Secret key for JWT token signing (≥16 bytes) | `tian-niu-dev-secret-change-in-production` |
 | `GIN_MODE` | Gin run mode (`debug`/`release`) | `debug` |
 
@@ -182,6 +183,13 @@ When context usage exceeds the threshold, large tool response content is offload
 - **UsageThreshold**: Context usage percentage that triggers offloading
 
 When content is offloaded, the agent replaces it with a preview and provides a `load_storage(key="...")` call suggestion to retrieve the full content when needed.
+
+#### Truncate Policy
+
+When context usage exceeds the threshold, older messages are truncated to reduce token count:
+
+- **KeepRecentMessages**: Number of recent messages to skip
+- **UsageThreshold**: Context usage percentage that triggers truncation
 
 ### MCP Server Configuration
 

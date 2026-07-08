@@ -76,8 +76,7 @@ func main() {
 		mcpClients = append(mcpClients, mcpClient)
 	}
 
-	// Create context engine and policies
-	leveldbPath := os.Getenv("LEVELEDB_PATH")
+	leveldbPath := os.Getenv("LEVELDB_PATH")
 	if leveldbPath == "" {
 		leveldbPath = "leveldb_data"
 	}
@@ -88,8 +87,8 @@ func main() {
 	}
 	defer storage.Close()
 
+	// Create context engine and policies
 	summarizer := context2.NewLLMSummarizer(appConf.LLMProviders.BackModel, 200)
-
 	policies := []context2.Policy{
 		context2.NewOffloadPolicy(storage, 0.4, 0, 100),
 		context2.NewSummaryPolicy(summarizer, 10, 20, 0.6),
