@@ -4,17 +4,37 @@ A lightweight AI chat agent built with Go, featuring streaming message processin
 
 ## Features
 
-- **Smart Conversations**: Fluent AI model interaction with streaming responses
-- **Multi-thread Management**: Create, rename, and delete conversation threads
-- **Streaming Messages**: Real-time message delivery via Server-Sent Events (SSE)
-- **Tool Calls**: AI can invoke external tools to fetch information
-- **MCP Integration**: Connect to any MCP-compatible tool server (stdio / HTTP) to extend agent capabilities
-- **Reasoning Panel**: Display the AI's thinking process (DeepSeek-R1, QwQ, etc.)
-- **Bash Tool**: Execute shell commands with built-in security restrictions (dangerous pattern blocking, timeout, output limits, env filtering)
-- **Memory System**: Multi-level memory management (global + workspace) for context retention
-- **Markdown Rendering**: Full markdown support (GFM) for AI responses and tool results
-- **JWT Authentication**: User registration, login, and token-based access control
-- **Context Management**: Automatic message summarization and content offloading to manage context window
+- ✅ **Smart Conversations**: Fluent AI model interaction with streaming responses
+- ✅ **Multi-thread Management**: Create, rename, and delete conversation threads
+- ✅ **Streaming Messages**: Real-time message delivery via Server-Sent Events (SSE)
+- ✅ **Tool Calls**: AI can invoke external tools to fetch information
+- ✅ **MCP Integration**: Connect to any MCP-compatible tool server (stdio / HTTP) to extend agent capabilities
+- ✅ **Reasoning Panel**: Display the AI's thinking process (DeepSeek-R1, QwQ, etc.)
+- ✅ **Bash Tool**: Execute shell commands with built-in security restrictions (dangerous pattern blocking, timeout, output limits, env filtering)
+- ✅ **Memory System**: Multi-level memory management (global + workspace) for context retention
+- ✅ **Markdown Rendering**: Full markdown support (GFM) for AI responses and tool results
+- ✅ **JWT Authentication**: User registration, login, and token-based access control
+- ✅ **Context Management**: Automatic message summarization and content offloading to manage context window
+- [ ] **File Processing**: Support for file upload and analysis (RAG)
+- [ ] **Message Editing**: Edit and recall sent messages
+- [ ] **Message Reply**: Quote specific messages for contextual responses
+- [ ] **Message Search**: Search through message history
+- [ ] **Conversation Export**: Export chat history in JSON/Markdown format
+- [ ] **Parameter Tuning**: Customize temperature, max tokens, etc.
+- [ ] **Web Search**: Real-time internet search capabilities
+- [ ] **User Preferences**: Store personalized settings and role presets
+- [ ] **API Usage Stats**: Track API calls and token consumption per user
+- [ ] **Skill System**: Skill store, management (install/uninstall), and custom skill creation
+- [ ] **Multimodal Support**: Image generation (text-to-image) and image understanding (vision)
+- [ ] **Voice Capabilities**: Speech-to-text and text-to-speech
+- [ ] **Social Sharing**: Share chat history and collaborate with others
+- [ ] **Content Creation**: Document generation, code writing, and table processing
+- [ ] **Productivity Tools**: Calendar integration, to-do lists, and reminders
+- [ ] **Role Store**: Discover and use pre-built AI personas/characters
+- [ ] **Favorites & Notes**: Save and organize important conversations
+- [ ] **Translation**: Multi-language translation support
+- [ ] **AI Summarization**: Automatic long text summarization
+- [ ] **Third-party Integration**: Browser extensions, mobile apps, and external services
 
 ## Tech Stack
 
