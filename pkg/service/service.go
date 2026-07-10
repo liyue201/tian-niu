@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/tianniu-ai/tianniu/pkg/auth"
@@ -206,11 +207,14 @@ func (s *Service) CreateMessage(ctx context.Context, conversationID string, req 
 	createdAt := time.Now().Unix()
 
 	eventCh := make(chan agent.StreamEvent, 64)
-	defer close(eventCh)
+	//defer close(eventCh)
 
 	// Bridge agent events -> SSE events with non-blocking send to avoid
 	// goroutine leak when the client disconnects mid-stream.
+	var wg sync.WaitGroup
 	go func() {
+		wg.Add(1)
+		defer wg.Done()
 		for e := range eventCh {
 			select {
 			case <-ctx.Done():
@@ -221,6 +225,7 @@ func (s *Service) CreateMessage(ctx context.Context, conversationID string, req 
 			}
 		}
 	}()
+	wg.Wait()
 
 	agent := s.mgr.GetAgent(req.UserID, conversationID)
 

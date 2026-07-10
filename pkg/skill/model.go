@@ -68,6 +68,7 @@ type Skill struct {
 	UpdatedAt   time.Time        `json:"updated_at"`
 	Path        string           `json:"path"`
 	Definition  *SkillDefinition `json:"definition"`
+	Content     string           `json:"content"`
 }
 
 func (s *Skill) ToMarkdown() string {

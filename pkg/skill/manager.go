@@ -41,7 +41,7 @@ func (m *Manager) InstallSystemSkill(skillPath string, options InstallOptions) (
 		return nil, fmt.Errorf("skill path does not exist: %s", skillPath)
 	}
 
-	skillDef, err := parseSkillDefinition(skillPath)
+	skillDef, content, err := parseSkillDefinition(skillPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse skill definition: %w", err)
 	}
@@ -71,6 +71,7 @@ func (m *Manager) InstallSystemSkill(skillPath string, options InstallOptions) (
 		UpdatedAt:   time.Now(),
 		Path:        destPath,
 		Definition:  skillDef,
+		Content:     content,
 	}
 
 	if existingSkill != nil {
@@ -102,7 +103,7 @@ func (m *Manager) InstallUserSkill(userID, skillPath string, options InstallOpti
 		return nil, fmt.Errorf("skill path does not exist: %s", skillPath)
 	}
 
-	skillDef, err := parseSkillDefinition(skillPath)
+	skillDef, content, err := parseSkillDefinition(skillPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse skill definition: %w", err)
 	}
@@ -130,6 +131,7 @@ func (m *Manager) InstallUserSkill(userID, skillPath string, options InstallOpti
 		UpdatedAt:   time.Now(),
 		Path:        destPath,
 		Definition:  skillDef,
+		Content:     content,
 	}
 
 	if existingSkill != nil && existingSkill.Type == SkillTypeUser {
@@ -243,7 +245,7 @@ func (m *Manager) loadSystemSkills() error {
 		}
 
 		skillPath := filepath.Join(systemDir, entry.Name())
-		skillDef, err := parseSkillDefinition(skillPath)
+		skillDef, content, err := parseSkillDefinition(skillPath)
 		if err != nil {
 			log.Warnf("Failed to parse system skill '%s': %v", entry.Name(), err)
 			continue
@@ -266,6 +268,7 @@ func (m *Manager) loadSystemSkills() error {
 				UpdatedAt:   time.Now(),
 				Path:        skillPath,
 				Definition:  skillDef,
+				Content:     content,
 			}
 
 			if err := m.store.Save(skill); err != nil {
@@ -293,6 +296,7 @@ func (m *Manager) loadSystemSkills() error {
 			existingSkill.Metadata = skillDef.Metadata
 			existingSkill.Path = skillPath
 			existingSkill.Definition = skillDef
+			existingSkill.Content = content
 			existingSkill.UpdatedAt = time.Now()
 
 			if err := m.store.Save(existingSkill); err != nil {
@@ -321,17 +325,22 @@ func (m *Manager) loadSystemSkills() error {
 	return nil
 }
 
-func parseSkillDefinition(skillPath string) (*SkillDefinition, error) {
+func parseSkillDefinition(skillPath string) (*SkillDefinition, string, error) {
 	skillMDPath := filepath.Join(skillPath, "SKILL.md")
 	data, err := os.ReadFile(skillMDPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read SKILL.md: %w", err)
+		return nil, "", fmt.Errorf("failed to read SKILL.md: %w", err)
 	}
 
-	return parseSkillMD(string(data))
+	def, content, err := parseSkillMD(string(data))
+	if err != nil {
+		return nil, "", err
+	}
+
+	return def, content, nil
 }
 
-func parseSkillMD(content string) (*SkillDefinition, error) {
+func parseSkillMD(content string) (*SkillDefinition, string, error) {
 	lines := strings.Split(content, "\n")
 	def := &SkillDefinition{
 		Commands:     []SkillCommand{},
@@ -339,7 +348,10 @@ func parseSkillMD(content string) (*SkillDefinition, error) {
 		WhenNotToUse: []string{},
 	}
 
+	var markdownBuffer strings.Builder
+
 	inMetadata := false
+	metadataEnded := false
 	inWhenToUse := false
 	inWhenNotToUse := false
 	var metadataBuffer bytes.Buffer
@@ -348,9 +360,10 @@ func parseSkillMD(content string) (*SkillDefinition, error) {
 		if strings.HasPrefix(line, "---") {
 			if inMetadata {
 				inMetadata = false
+				metadataEnded = true
 				var metadata SkillMetadata
 				if err := parseYAML(metadataBuffer.String(), &metadata); err != nil {
-					return nil, fmt.Errorf("failed to parse metadata: %w", err)
+					return nil, "", fmt.Errorf("failed to parse metadata: %w", err)
 				}
 				def.Metadata = metadata
 			} else {
@@ -378,6 +391,10 @@ func parseSkillMD(content string) (*SkillDefinition, error) {
 				}
 			}
 			continue
+		}
+
+		if metadataEnded {
+			markdownBuffer.WriteString(line + "\n")
 		}
 
 		if strings.HasPrefix(line, "## When to Use") {
@@ -419,10 +436,10 @@ func parseSkillMD(content string) (*SkillDefinition, error) {
 	}
 
 	if def.Name == "" {
-		return nil, fmt.Errorf("skill definition is missing 'name' field")
+		return nil, "", fmt.Errorf("skill definition is missing 'name' field")
 	}
 
-	return def, nil
+	return def, strings.TrimSpace(markdownBuffer.String()), nil
 }
 
 func parseYAML(content string, v interface{}) error {

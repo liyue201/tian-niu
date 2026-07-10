@@ -74,7 +74,7 @@ func (t *SkillTool) Execute(ctx context.Context, argumentsInJSON string) (string
 		return "", fmt.Errorf("command is required")
 	}
 
-	return t.skill.ToMarkdown(), nil
+	return t.skill.Content, nil
 }
 
 func (t *SkillTool) GetSkill() *Skill {
