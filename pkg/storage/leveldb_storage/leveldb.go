@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 type LevelDBStorage struct {
@@ -34,6 +35,26 @@ func (s *LevelDBStorage) Load(ctx context.Context, key string) (string, error) {
 
 func (s *LevelDBStorage) Store(ctx context.Context, key string, value string) error {
 	return s.db.Put([]byte(key), []byte(value), nil)
+}
+
+func (s *LevelDBStorage) Delete(ctx context.Context, key string) error {
+	return s.db.Delete([]byte(key), nil)
+}
+
+func (s *LevelDBStorage) List(ctx context.Context, prefix string) ([]string, error) {
+	var keys []string
+	iter := s.db.NewIterator(util.BytesPrefix([]byte(prefix)), nil)
+	defer iter.Release()
+
+	for iter.Next() {
+		keys = append(keys, string(iter.Key()))
+	}
+
+	if err := iter.Error(); err != nil {
+		return nil, err
+	}
+
+	return keys, nil
 }
 
 func (s *LevelDBStorage) Close() error {

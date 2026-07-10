@@ -18,6 +18,7 @@ import (
 	"github.com/tianniu-ai/tianniu/pkg/server"
 	"github.com/tianniu-ai/tianniu/pkg/shared"
 	_ "github.com/tianniu-ai/tianniu/pkg/shared/log"
+	"github.com/tianniu-ai/tianniu/pkg/skill"
 	"github.com/tianniu-ai/tianniu/pkg/storage/leveldb_storage"
 )
 
@@ -95,6 +96,18 @@ func main() {
 	memoryUpdater := memory.NewLLMMemoryUpdater(appConf.LLMProviders.BackModel)
 	multiLevelMemory := memory.NewMultiLevelMemory(storage, memoryUpdater)
 
+	skillsDir := os.Getenv("SKILLS_DIR")
+	if skillsDir == "" {
+		skillsDir = "skills"
+	}
+
+	skillStore := skill.NewStorageSkillStore(storage)
+
+	skillManager := skill.NewManager(skillStore, skillsDir)
+	if err := skillManager.LoadInstalledSkills(); err != nil {
+		log.Errorf("Failed to load installed skills: %v", err)
+	}
+
 	mgr := agent.NewManager(
 		db,
 		appConf.LLMProviders.FrontModel,
@@ -102,9 +115,12 @@ func main() {
 		[]tool.Tool{tool.NewBashTool(appConf.BashTool)},
 		mcpClients,
 		policies,
-		multiLevelMemory)
+		multiLevelMemory,
+		skillManager)
 
-	s := server.NewServer(appConf.ServerAddress, db, mgr)
+	skillAPI := server.NewSkillAPI(skillManager)
+
+	s := server.NewServer(appConf.ServerAddress, db, mgr, skillAPI)
 	s.Run()
 	defer s.Stop()
 

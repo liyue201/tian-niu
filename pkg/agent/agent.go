@@ -17,6 +17,7 @@ type Agent struct {
 	model         string
 	client        openai.Client
 	nativeTools   map[tool.AgentTool]tool.Tool
+	skillTools    map[tool.AgentTool]tool.Tool
 	systemPrompt  string
 	mcpClients    map[string]*mcp.Client
 	contextEngine *ctxengine.Engine
@@ -25,18 +26,23 @@ type Agent struct {
 func NewAgent(modelConf shared.ModelConfig,
 	systemPrompt string,
 	tools []tool.Tool,
+	skillTools []tool.Tool,
 	mcpClients []*mcp.Client,
 	contextEngine *ctxengine.Engine) *Agent {
 	a := &Agent{
 		model:         modelConf.Model,
 		client:        llm.NewLLMClient(modelConf),
 		nativeTools:   make(map[tool.AgentTool]tool.Tool),
+		skillTools:    make(map[tool.AgentTool]tool.Tool),
 		systemPrompt:  systemPrompt,
 		mcpClients:    make(map[string]*mcp.Client),
 		contextEngine: contextEngine,
 	}
 	for _, t := range tools {
 		a.nativeTools[t.ToolName()] = t
+	}
+	for _, t := range skillTools {
+		a.skillTools[t.ToolName()] = t
 	}
 	for _, mcpClient := range mcpClients {
 		a.mcpClients[mcpClient.Name()] = mcpClient
@@ -45,12 +51,28 @@ func NewAgent(modelConf shared.ModelConfig,
 	return a
 }
 
+func (a *Agent) AddSkillTool(t tool.Tool) {
+	a.skillTools[t.ToolName()] = t
+}
+
+func (a *Agent) RemoveSkillTool(name tool.AgentTool) {
+	delete(a.skillTools, name)
+}
+
+func (a *Agent) ClearSkillTools() {
+	a.skillTools = make(map[tool.AgentTool]tool.Tool)
+}
+
 func (a *Agent) Model() string {
 	return a.model
 }
 
 func (a *Agent) findTool(toolName string) (tool.Tool, bool) {
 	t, ok := a.nativeTools[toolName]
+	if ok {
+		return t, true
+	}
+	t, ok = a.skillTools[toolName]
 	if ok {
 		return t, true
 	}
@@ -66,8 +88,11 @@ func (a *Agent) findTool(toolName string) (tool.Tool, bool) {
 }
 
 func (a *Agent) buildTools() []openai.ChatCompletionToolUnionParam {
-	tools := make([]openai.ChatCompletionToolUnionParam, 0, len(a.nativeTools))
+	tools := make([]openai.ChatCompletionToolUnionParam, 0, len(a.nativeTools)+len(a.skillTools))
 	for _, t := range a.nativeTools {
+		tools = append(tools, t.Info())
+	}
+	for _, t := range a.skillTools {
 		tools = append(tools, t.Info())
 	}
 	for _, mcpClient := range a.mcpClients {
@@ -108,7 +133,8 @@ func (a *Agent) RunStreaming(ctx context.Context, query string, eventCh chan<- S
 
 	var finalResponse string
 
-	for {
+	maxLoops := 20
+	for loop := 0; loop < maxLoops; loop++ {
 		params := openai.ChatCompletionNewParams{
 			Model:         a.model,
 			Messages:      messages,
@@ -167,9 +193,9 @@ func (a *Agent) RunStreaming(ctx context.Context, query string, eventCh chan<- S
 			eventCh <- StreamEvent{Event: EventToolResult, ToolCall: toolCall.Function.Name, ToolResult: toolResult}
 
 			toolMsg := openai.ToolMessage(toolResult, toolCall.ID)
-			messages = append(messages, toolMsg)
 
 			messages = append(messages, toolMsg)
+
 			draft.NewMessages = append(draft.NewMessages, toolMsg)
 		}
 
@@ -179,6 +205,9 @@ func (a *Agent) RunStreaming(ctx context.Context, query string, eventCh chan<- S
 			return RunResult{Response: finalResponse}, ctx.Err()
 		default:
 		}
+	}
+	if finalResponse == "" {
+		return RunResult{}, fmt.Errorf("no response from agent")
 	}
 
 	err := a.contextEngine.CommitTurn(ctx, draft, ctxengine.Usage{PromptTokens: int(usage.TotalTokens)})
