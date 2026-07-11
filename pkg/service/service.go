@@ -207,30 +207,36 @@ func (s *Service) CreateMessage(ctx context.Context, conversationID string, req 
 	createdAt := time.Now().Unix()
 
 	eventCh := make(chan agent.StreamEvent, 64)
-	//defer close(eventCh)
 
 	// Bridge agent events -> SSE events with non-blocking send to avoid
 	// goroutine leak when the client disconnects mid-stream.
 	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
-		wg.Add(1)
 		defer wg.Done()
-		for e := range eventCh {
+		for {
 			select {
 			case <-ctx.Done():
 				return
-			case voCh <- toSSEMessage(msgID, e):
-			default:
-				return
+			case e, ok := <-eventCh:
+				if !ok {
+					return
+				}
+				voCh <- toSSEMessage(msgID, e)
 			}
 		}
 	}()
-	wg.Wait()
 
 	agent := s.mgr.GetAgent(req.UserID, conversationID)
 
 	// TODO: ParentMessageID is not used yet.
+
 	result, runErr := agent.RunStreaming(ctx, req.Query, eventCh)
+
+	close(eventCh)
+
+	wg.Wait()
+
 	if runErr != nil {
 		log.Warnf("run streaming error: %v", runErr)
 		return runErr
