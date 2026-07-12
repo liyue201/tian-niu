@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/tianniu-ai/tianniu/pkg/auth"
@@ -19,11 +20,11 @@ import (
 )
 
 type Service struct {
-	db  *repository.Repository
+	db  *repository.SQLStore
 	mgr *agent.Manager
 }
 
-func NewService(db *repository.Repository, mgr *agent.Manager) *Service {
+func NewService(db *repository.SQLStore, mgr *agent.Manager) *Service {
 	return &Service{db: db, mgr: mgr}
 }
 
@@ -206,18 +207,22 @@ func (s *Service) CreateMessage(ctx context.Context, conversationID string, req 
 	createdAt := time.Now().Unix()
 
 	eventCh := make(chan agent.StreamEvent, 64)
-	defer close(eventCh)
 
 	// Bridge agent events -> SSE events with non-blocking send to avoid
 	// goroutine leak when the client disconnects mid-stream.
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
-		for e := range eventCh {
+		defer wg.Done()
+		for {
 			select {
 			case <-ctx.Done():
 				return
-			case voCh <- toSSEMessage(msgID, e):
-			default:
-				return
+			case e, ok := <-eventCh:
+				if !ok {
+					return
+				}
+				voCh <- toSSEMessage(msgID, e)
 			}
 		}
 	}()
@@ -225,7 +230,13 @@ func (s *Service) CreateMessage(ctx context.Context, conversationID string, req 
 	agent := s.mgr.GetAgent(req.UserID, conversationID)
 
 	// TODO: ParentMessageID is not used yet.
+
 	result, runErr := agent.RunStreaming(ctx, req.Query, eventCh)
+
+	close(eventCh)
+
+	wg.Wait()
+
 	if runErr != nil {
 		log.Warnf("run streaming error: %v", runErr)
 		return runErr

@@ -2,7 +2,7 @@ package repository
 
 import "github.com/tianniu-ai/tianniu/pkg/model"
 
-func (r *Repository) GetConversationMessages(conversationID string, limit int) ([]*model.ChatMessage, error) {
+func (r *SQLStore) GetConversationMessages(conversationID string, limit int) ([]*model.ChatMessage, error) {
 	var list []*model.ChatMessage
 	query := r.db.Where("conversation_id = ?", conversationID).Order("created_at desc")
 	if limit > 0 {

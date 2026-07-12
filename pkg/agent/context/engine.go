@@ -21,7 +21,7 @@ type Engine struct {
 	memory               memory.Memory
 	userId               string
 	conversationId       string
-	repo                 *repository.Repository
+	repo                 *repository.SQLStore
 	systemPromptTemplate string
 	messages             []messageWrap
 	policies             []Policy
@@ -42,7 +42,7 @@ type TurnDraft struct {
 	NewMessages []shared.OpenAIMessage
 }
 
-func NewContextEngine(memory memory.Memory, userId string, conversationId string, policies []Policy, repo *repository.Repository) *Engine {
+func NewContextEngine(memory memory.Memory, userId string, conversationId string, policies []Policy, repo *repository.SQLStore) *Engine {
 	return &Engine{
 		memory:         memory,
 		userId:         userId,

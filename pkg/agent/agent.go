@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/openai/openai-go/v3"
+	log "github.com/sirupsen/logrus"
 	ctxengine "github.com/tianniu-ai/tianniu/pkg/agent/context"
 	"github.com/tianniu-ai/tianniu/pkg/agent/llm"
 	"github.com/tianniu-ai/tianniu/pkg/agent/mcp"
@@ -17,6 +19,7 @@ type Agent struct {
 	model         string
 	client        openai.Client
 	nativeTools   map[tool.AgentTool]tool.Tool
+	skillTools    map[tool.AgentTool]tool.Tool
 	systemPrompt  string
 	mcpClients    map[string]*mcp.Client
 	contextEngine *ctxengine.Engine
@@ -25,18 +28,23 @@ type Agent struct {
 func NewAgent(modelConf shared.ModelConfig,
 	systemPrompt string,
 	tools []tool.Tool,
+	skillTools []tool.Tool,
 	mcpClients []*mcp.Client,
 	contextEngine *ctxengine.Engine) *Agent {
 	a := &Agent{
 		model:         modelConf.Model,
 		client:        llm.NewLLMClient(modelConf),
 		nativeTools:   make(map[tool.AgentTool]tool.Tool),
+		skillTools:    make(map[tool.AgentTool]tool.Tool),
 		systemPrompt:  systemPrompt,
 		mcpClients:    make(map[string]*mcp.Client),
 		contextEngine: contextEngine,
 	}
 	for _, t := range tools {
 		a.nativeTools[t.ToolName()] = t
+	}
+	for _, t := range skillTools {
+		a.skillTools[t.ToolName()] = t
 	}
 	for _, mcpClient := range mcpClients {
 		a.mcpClients[mcpClient.Name()] = mcpClient
@@ -45,12 +53,28 @@ func NewAgent(modelConf shared.ModelConfig,
 	return a
 }
 
+func (a *Agent) AddSkillTool(t tool.Tool) {
+	a.skillTools[t.ToolName()] = t
+}
+
+func (a *Agent) RemoveSkillTool(name tool.AgentTool) {
+	delete(a.skillTools, name)
+}
+
+func (a *Agent) ClearSkillTools() {
+	a.skillTools = make(map[tool.AgentTool]tool.Tool)
+}
+
 func (a *Agent) Model() string {
 	return a.model
 }
 
 func (a *Agent) findTool(toolName string) (tool.Tool, bool) {
 	t, ok := a.nativeTools[toolName]
+	if ok {
+		return t, true
+	}
+	t, ok = a.skillTools[toolName]
 	if ok {
 		return t, true
 	}
@@ -65,9 +89,15 @@ func (a *Agent) findTool(toolName string) (tool.Tool, bool) {
 	return t, false
 }
 
-func (a *Agent) buildTools() []openai.ChatCompletionToolUnionParam {
-	tools := make([]openai.ChatCompletionToolUnionParam, 0, len(a.nativeTools))
+func (a *Agent) buildTools(usedSkillTools map[string]bool) []openai.ChatCompletionToolUnionParam {
+	tools := make([]openai.ChatCompletionToolUnionParam, 0, len(a.nativeTools)+len(a.skillTools))
 	for _, t := range a.nativeTools {
+		tools = append(tools, t.Info())
+	}
+	for name, t := range a.skillTools {
+		if usedSkillTools[name] {
+			continue
+		}
 		tools = append(tools, t.Info())
 	}
 	for _, mcpClient := range a.mcpClients {
@@ -108,11 +138,14 @@ func (a *Agent) RunStreaming(ctx context.Context, query string, eventCh chan<- S
 
 	var finalResponse string
 
-	for {
+	usedSkillTools := make(map[string]bool)
+
+	maxLoops := 20
+	for loop := 0; loop < maxLoops; loop++ {
 		params := openai.ChatCompletionNewParams{
 			Model:         a.model,
 			Messages:      messages,
-			Tools:         a.buildTools(),
+			Tools:         a.buildTools(usedSkillTools),
 			StreamOptions: openai.ChatCompletionStreamOptionsParam{IncludeUsage: openai.Bool(true)},
 		}
 
@@ -149,27 +182,45 @@ func (a *Agent) RunStreaming(ctx context.Context, query string, eventCh chan<- S
 		assistantMsg := message.ToParam()
 		messages = append(messages, assistantMsg)
 
+		var toolCalls []openai.ChatCompletionMessageToolCallUnion
+		for _, toolCall := range message.ToolCalls {
+			if toolCall.Function.Name == "" {
+				continue
+			}
+			toolCalls = append(toolCalls, toolCall)
+		}
+
 		// No tool calls, end loop
-		if len(message.ToolCalls) == 0 {
+		if len(toolCalls) == 0 {
 			finalResponse = message.Content
 			break
 		}
 
 		// Execute tool calls
-		for _, toolCall := range message.ToolCalls {
-			eventCh <- StreamEvent{Event: EventToolCall, ToolCall: toolCall.Function.Name, ToolArguments: toolCall.Function.Arguments}
+		for _, toolCall := range toolCalls {
+			if toolCall.Function.Name == "" {
+				continue
+			}
+			toolName := toolCall.Function.Name
+
+			if strings.HasPrefix(toolName, "skill_") {
+				usedSkillTools[toolName] = true
+			}
+
+			eventCh <- StreamEvent{Event: EventToolCall, ToolCall: toolName, ToolArguments: toolCall.Function.Arguments}
 
 			toolResult, err := a.executeTool(ctx, toolCall)
 			if err != nil {
 				toolResult = err.Error()
+				log.Errorf("executeTool: %v", err)
 				eventCh <- StreamEvent{Event: EventError, Content: toolResult}
 			}
-			eventCh <- StreamEvent{Event: EventToolResult, ToolCall: toolCall.Function.Name, ToolResult: toolResult}
+			eventCh <- StreamEvent{Event: EventToolResult, ToolCall: toolName, ToolResult: toolResult}
 
 			toolMsg := openai.ToolMessage(toolResult, toolCall.ID)
-			messages = append(messages, toolMsg)
 
 			messages = append(messages, toolMsg)
+
 			draft.NewMessages = append(draft.NewMessages, toolMsg)
 		}
 
@@ -179,6 +230,9 @@ func (a *Agent) RunStreaming(ctx context.Context, query string, eventCh chan<- S
 			return RunResult{Response: finalResponse}, ctx.Err()
 		default:
 		}
+	}
+	if finalResponse == "" {
+		return RunResult{}, fmt.Errorf("no response from agent")
 	}
 
 	err := a.contextEngine.CommitTurn(ctx, draft, ctxengine.Usage{PromptTokens: int(usage.TotalTokens)})

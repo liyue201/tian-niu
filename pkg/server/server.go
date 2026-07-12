@@ -21,9 +21,10 @@ type Server struct {
 	svc        *service.Service
 	httpServer *http.Server
 	wg         sync.WaitGroup
+	skillAPI   *SkillAPI
 }
 
-func NewServer(addr string, db *repository.Repository, mgr *agent.Manager) *Server {
+func NewServer(addr string, db *repository.SQLStore, mgr *agent.Manager, skillAPI *SkillAPI) *Server {
 	svc := service.NewService(db, mgr)
 	engine := gin.New()
 	gin.SetMode(gin.ReleaseMode)
@@ -32,6 +33,7 @@ func NewServer(addr string, db *repository.Repository, mgr *agent.Manager) *Serv
 	s := &Server{
 		svc:        svc,
 		httpServer: &http.Server{Addr: addr, Handler: engine},
+		skillAPI:   skillAPI,
 	}
 	s.setupRouter(engine)
 	return s
@@ -55,6 +57,11 @@ func (s *Server) setupRouter(g *gin.Engine) {
 	protected.DELETE("/conversation/:conversation_id", s.deleteConversation)
 	protected.POST("/conversation/:conversation_id/message", s.createMessage)
 	protected.GET("/conversation/:conversation_id/message", s.listMessages)
+
+	// Skill routes
+	if s.skillAPI != nil {
+		s.skillAPI.RegisterRoutes(protected)
+	}
 }
 
 // jwtMiddleware is a Gin middleware to validate JWT tokens
