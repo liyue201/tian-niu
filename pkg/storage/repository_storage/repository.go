@@ -7,10 +7,10 @@ import (
 )
 
 type RepositoryStorage struct {
-	repo *repository.Repository
+	repo *repository.SQLStore
 }
 
-func NewRepositoryStorage(repo *repository.Repository) *RepositoryStorage {
+func NewRepositoryStorage(repo *repository.SQLStore) *RepositoryStorage {
 	return &RepositoryStorage{
 		repo: repo,
 	}

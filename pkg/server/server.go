@@ -24,7 +24,7 @@ type Server struct {
 	skillAPI   *SkillAPI
 }
 
-func NewServer(addr string, db *repository.Repository, mgr *agent.Manager, skillAPI *SkillAPI) *Server {
+func NewServer(addr string, db *repository.SQLStore, mgr *agent.Manager, skillAPI *SkillAPI) *Server {
 	svc := service.NewService(db, mgr)
 	engine := gin.New()
 	gin.SetMode(gin.ReleaseMode)

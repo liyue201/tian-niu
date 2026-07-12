@@ -53,7 +53,7 @@ func main() {
 	if dbPath == "" {
 		dbPath = "test.db"
 	}
-	db, err := repository.NewRepository(dbPath)
+	db, err := repository.NewSQLStore(dbPath)
 	if err != nil {
 		log.Errorf("Failed to initialize database: %v", err)
 		panic(err)

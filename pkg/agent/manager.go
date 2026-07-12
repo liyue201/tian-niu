@@ -16,7 +16,7 @@ import (
 )
 
 type Manager struct {
-	repo         *repository.Repository
+	repo         *repository.SQLStore
 	modelConf    shared.ModelConfig
 	client       openai.Client
 	tools        []tool.Tool
@@ -31,7 +31,7 @@ type Manager struct {
 }
 
 func NewManager(
-	repo *repository.Repository,
+	repo *repository.SQLStore,
 	modelConf shared.ModelConfig,
 	systemPrompt string,
 	tools []tool.Tool,

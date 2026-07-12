@@ -11,11 +11,11 @@ import (
 
 var ErrDuplicateEntry = errors.New("duplicate entry")
 
-type Repository struct {
+type SQLStore struct {
 	db *gorm.DB
 }
 
-func NewRepository(dsn string) (*Repository, error) {
+func NewSQLStore(dsn string) (*SQLStore, error) {
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return nil, err
@@ -24,12 +24,12 @@ func NewRepository(dsn string) (*Repository, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Repository{
+	return &SQLStore{
 		db: db,
 	}, nil
 }
 
-func (r *Repository) Create(v interface{}) error {
+func (r *SQLStore) Create(v interface{}) error {
 	err := r.db.Create(v).Error
 	if err != nil && isDuplicateEntryError(err) {
 		return ErrDuplicateEntry
@@ -37,11 +37,11 @@ func (r *Repository) Create(v interface{}) error {
 	return err
 }
 
-func (r *Repository) Delete(v interface{}) error {
+func (r *SQLStore) Delete(v interface{}) error {
 	return r.db.Delete(v).Error
 }
 
-func (r *Repository) DeleteConversationWithMessages(conversationID string) error {
+func (r *SQLStore) DeleteConversationWithMessages(conversationID string) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("conversation_id = ?", conversationID).Delete(&model.ChatMessage{}).Error; err != nil {
 			return err

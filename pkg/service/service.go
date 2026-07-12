@@ -20,11 +20,11 @@ import (
 )
 
 type Service struct {
-	db  *repository.Repository
+	db  *repository.SQLStore
 	mgr *agent.Manager
 }
 
-func NewService(db *repository.Repository, mgr *agent.Manager) *Service {
+func NewService(db *repository.SQLStore, mgr *agent.Manager) *Service {
 	return &Service{db: db, mgr: mgr}
 }
 
