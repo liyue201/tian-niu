@@ -19,7 +19,6 @@ import (
 	"github.com/tianniu-ai/tianniu/pkg/shared"
 	_ "github.com/tianniu-ai/tianniu/pkg/shared/log"
 	"github.com/tianniu-ai/tianniu/pkg/skill"
-	"github.com/tianniu-ai/tianniu/pkg/storage/leveldb_storage"
 )
 
 type AppConfig struct {
@@ -63,45 +62,33 @@ func main() {
 	if err != nil {
 		log.Errorf("Failed to load MCP server configuration: %v", err)
 	}
-	ctx := context.Background()
 	mcpClients := make([]*mcp.Client, 0)
 	for k, v := range mcpServerMap {
 		mcpClient := mcp.NewMcpToolProvider(k, v)
-		if err := mcpClient.RefreshTools(ctx); err != nil {
+		if err := mcpClient.RefreshTools(context.Background()); err != nil {
 			log.Errorf("Failed to refresh tools for MCP server %s: %v", k, err)
 			continue
 		}
 		mcpClients = append(mcpClients, mcpClient)
 	}
 
-	leveldbPath := os.Getenv("LEVELDB_PATH")
-	if leveldbPath == "" {
-		leveldbPath = "leveldb_data"
-	}
-	storage, err := leveldb_storage.NewLevelDBStorage(leveldbPath)
-	if err != nil {
-		log.Errorf("Failed to create storage: %v", err)
-		panic(err)
-	}
-	defer storage.Close()
-
 	// Create context engine and policies
 	summarizer := context2.NewLLMSummarizer(appConf.LLMProviders.BackModel, 200)
 	policies := []context2.Policy{
-		context2.NewOffloadPolicy(storage, 0.4, 0, 100),
+		context2.NewOffloadPolicy(db, 0.4, 0, 100),
 		context2.NewSummaryPolicy(summarizer, 10, 20, 0.6),
 		context2.NewTruncatePolicy(0, 0.85),
 	}
 
 	memoryUpdater := memory.NewLLMMemoryUpdater(appConf.LLMProviders.BackModel)
-	multiLevelMemory := memory.NewMultiLevelMemory(storage, memoryUpdater)
+	multiLevelMemory := memory.NewMultiLevelMemory(db, memoryUpdater)
 
 	skillsDir := os.Getenv("SKILLS_DIR")
 	if skillsDir == "" {
 		skillsDir = "skills"
 	}
 
-	skillStore := skill.NewStorageSkillStore(storage)
+	skillStore := skill.NewSQLSkillStore(db)
 
 	skillManager := skill.NewManager(skillStore, skillsDir)
 	if err := skillManager.LoadInstalledSkills(); err != nil {
