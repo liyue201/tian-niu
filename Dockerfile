@@ -8,7 +8,10 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /server ./tianniu/main.go
 
 FROM alpine:3.20
 WORKDIR /app
-RUN apk add --no-cache ca-certificates tzdata sqlite-libs
+RUN apk add --no-cache ca-certificates tzdata sqlite-libs curl \
+    && apk add --no-cache nodejs npm
+
+RUN npm install -g @modelcontextprotocol/server-filesystem @upstash/context7-mcp mcporter
 
 COPY --from=builder /server /app/server
 
