@@ -58,21 +58,25 @@ func main() {
 		panic(err)
 	}
 
-	mcpServerMap, err := mcp.LoadMcpServerConfig("mcp-server.json")
-	if err != nil {
-		log.Errorf("Failed to load MCP server configuration: %v", err)
-	}
-	mcpClients := make([]*mcp.Client, 0)
-	for k, v := range mcpServerMap {
-		mcpClient := mcp.NewMcpToolProvider(k, v)
-		if err := mcpClient.RefreshTools(context.Background()); err != nil {
-			log.Errorf("Failed to refresh tools for MCP server %s: %v", k, err)
-			continue
-		}
-		mcpClients = append(mcpClients, mcpClient)
+	mcpStore := mcp.NewSQLMcpStore(db)
+	mcpManager := mcp.NewManager(mcpStore)
+	if err := mcpManager.LoadSystemMcpServers("mcp-server.json"); err != nil {
+		log.Errorf("Failed to load system MCP servers: %v", err)
 	}
 
-	// Create context engine and policies
+	mcpClients := make([]*mcp.Client, 0)
+	systemMcps, _ := mcpManager.GetSystemMcpServers()
+	for _, mcpServer := range systemMcps {
+		if mcpServer.Status == mcp.McpStatusEnabled {
+			mcpClient := mcp.NewMcpToolProvider(mcpServer.Name, mcpServer.Config)
+			if err := mcpClient.RefreshTools(context.Background()); err != nil {
+				log.Errorf("Failed to refresh tools for MCP server %s: %v", mcpServer.Name, err)
+				continue
+			}
+			mcpClients = append(mcpClients, mcpClient)
+		}
+	}
+
 	summarizer := context2.NewLLMSummarizer(appConf.LLMProviders.BackModel, 200)
 	policies := []context2.Policy{
 		context2.NewOffloadPolicy(db, 0.4, 0, 100),
@@ -89,7 +93,6 @@ func main() {
 	}
 
 	skillStore := skill2.NewSQLSkillStore(db)
-
 	skillManager := skill2.NewManager(skillStore, skillsDir)
 	if err := skillManager.LoadInstalledSkills(); err != nil {
 		log.Errorf("Failed to load installed skills: %v", err)
@@ -106,8 +109,9 @@ func main() {
 		skillManager)
 
 	skillAPI := server.NewSkillAPI(skillManager)
+	mcpAPI := server.NewMcpAPI(mcpManager)
 
-	s := server.NewServer(appConf.ServerAddress, db, mgr, skillAPI)
+	s := server.NewServer(appConf.ServerAddress, db, mgr, skillAPI, mcpAPI)
 	s.Run()
 	defer s.Stop()
 

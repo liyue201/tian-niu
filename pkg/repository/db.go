@@ -21,7 +21,7 @@ func NewSQLStore(dsn string) (*SQLStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = db.AutoMigrate(&model.User{}, &model.Conversation{}, &model.ChatMessage{}, &model.KVData{}, &model.Skill{})
+	err = db.AutoMigrate(&model.User{}, &model.Conversation{}, &model.ChatMessage{}, &model.KVData{}, &model.Skill{}, &model.McpServer{})
 	if err != nil {
 		return nil, err
 	}

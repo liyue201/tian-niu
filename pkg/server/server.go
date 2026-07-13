@@ -22,9 +22,10 @@ type Server struct {
 	httpServer *http.Server
 	wg         sync.WaitGroup
 	skillAPI   *SkillAPI
+	mcpAPI     *McpAPI
 }
 
-func NewServer(addr string, db *repository.SQLStore, mgr *agent.Manager, skillAPI *SkillAPI) *Server {
+func NewServer(addr string, db *repository.SQLStore, mgr *agent.Manager, skillAPI *SkillAPI, mcpAPI *McpAPI) *Server {
 	svc := service.NewService(db, mgr)
 	engine := gin.New()
 	gin.SetMode(gin.ReleaseMode)
@@ -34,6 +35,7 @@ func NewServer(addr string, db *repository.SQLStore, mgr *agent.Manager, skillAP
 		svc:        svc,
 		httpServer: &http.Server{Addr: addr, Handler: engine},
 		skillAPI:   skillAPI,
+		mcpAPI:     mcpAPI,
 	}
 	s.setupRouter(engine)
 	return s
@@ -62,9 +64,13 @@ func (s *Server) setupRouter(g *gin.Engine) {
 	if s.skillAPI != nil {
 		s.skillAPI.RegisterRoutes(protected)
 	}
+
+	// MCP routes
+	if s.mcpAPI != nil {
+		s.mcpAPI.RegisterRoutes(protected)
+	}
 }
 
-// jwtMiddleware is a Gin middleware to validate JWT tokens
 func jwtMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
@@ -74,7 +80,6 @@ func jwtMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Bearer token format: "Bearer <token>"
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
 			c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": "Invalid authorization format"})
@@ -90,7 +95,6 @@ func jwtMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Set user info to context
 		c.Set("userID", claims["user_id"])
 		c.Set("username", claims["username"])
 		c.Next()
