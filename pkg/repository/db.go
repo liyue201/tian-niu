@@ -7,6 +7,8 @@ import (
 
 	"github.com/libtnb/sqlite"
 	"github.com/tianniu-ai/tianniu/pkg/model"
+	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -16,12 +18,30 @@ type SQLStore struct {
 	db *gorm.DB
 }
 
-func NewSQLStore(dsn string) (*SQLStore, error) {
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+type DBConfig struct {
+	Type string // sqlite, postgres, mysql
+	DSN  string // connection string
+}
+
+func NewSQLStore(cfg DBConfig) (*SQLStore, error) {
+	var dialector gorm.Dialector
+
+	switch cfg.Type {
+	case "postgres":
+		dialector = postgres.Open(cfg.DSN)
+	case "mysql":
+		dialector = mysql.Open(cfg.DSN)
+	case "sqlite":
+		fallthrough
+	default:
+		dialector = sqlite.Open(cfg.DSN)
+	}
+
+	db, err := gorm.Open(dialector, &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
-	err = db.AutoMigrate(&model.User{}, &model.Conversation{}, &model.ChatMessage{}, &model.KVData{}, &model.Skill{})
+	err = db.AutoMigrate(&model.User{}, &model.Conversation{}, &model.ChatMessage{}, &model.KVData{}, &model.Skill{}, &model.McpServer{})
 	if err != nil {
 		return nil, err
 	}
@@ -102,5 +122,7 @@ func (r *SQLStore) List(ctx context.Context, prefix string) ([]string, error) {
 
 func isDuplicateEntryError(err error) bool {
 	s := err.Error()
-	return strings.Contains(s, "UNIQUE constraint failed") || strings.Contains(s, "duplicate key")
+	return strings.Contains(s, "UNIQUE constraint failed") ||
+		strings.Contains(s, "duplicate key") ||
+		strings.Contains(s, "Duplicate entry")
 }

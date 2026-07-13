@@ -1,4 +1,15 @@
 server_address: ":8080"
+
+# Database configuration
+# Supported types: sqlite, postgres, mysql
+database:
+  type: "sqlite"
+  # For SQLite: path to database file
+  # dsn: "test.db"
+  # For PostgreSQL: "host=localhost port=5432 user=postgres password=postgres dbname=tianniu sslmode=disable"
+  # For MySQL: "user:password@tcp(localhost:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local"
+  dsn: "test.db"
+
 llm_providers:
   front_model:
     base_url: "https://api.openai.com/v1"

@@ -13,17 +13,21 @@ import (
 	context2 "github.com/tianniu-ai/tianniu/pkg/agent/context"
 	"github.com/tianniu-ai/tianniu/pkg/agent/mcp"
 	"github.com/tianniu-ai/tianniu/pkg/agent/memory"
+	skill2 "github.com/tianniu-ai/tianniu/pkg/agent/skill"
 	"github.com/tianniu-ai/tianniu/pkg/agent/tool"
 	"github.com/tianniu-ai/tianniu/pkg/repository"
 	"github.com/tianniu-ai/tianniu/pkg/server"
 	"github.com/tianniu-ai/tianniu/pkg/shared"
 	_ "github.com/tianniu-ai/tianniu/pkg/shared/log"
-	"github.com/tianniu-ai/tianniu/pkg/skill"
 )
 
 type AppConfig struct {
 	ServerAddress string `yaml:"server_address"`
-	LLMProviders  struct {
+	Database      struct {
+		Type string `yaml:"type"`
+		DSN  string `yaml:"dsn"`
+	} `yaml:"database"`
+	LLMProviders struct {
 		FrontModel shared.ModelConfig `yaml:"front_model"`
 		BackModel  shared.ModelConfig `yaml:"back_model"`
 	} `yaml:"llm_providers"`
@@ -48,31 +52,50 @@ func main() {
 		panic(err)
 	}
 
-	dbPath := os.Getenv("DB_PATH")
-	if dbPath == "" {
-		dbPath = "test.db"
+	dbType := os.Getenv("DB_TYPE")
+	if dbType == "" {
+		dbType = appConf.Database.Type
+		if dbType == "" {
+			dbType = "sqlite"
+		}
 	}
-	db, err := repository.NewSQLStore(dbPath)
+
+	dbDSN := os.Getenv("DB_DSN")
+	if dbDSN == "" {
+		dbDSN = appConf.Database.DSN
+		if dbDSN == "" {
+			dbDSN = "test.db"
+		}
+	}
+
+	db, err := repository.NewSQLStore(repository.DBConfig{
+		Type: dbType,
+		DSN:  dbDSN,
+	})
 	if err != nil {
 		log.Errorf("Failed to initialize database: %v", err)
 		panic(err)
 	}
 
-	mcpServerMap, err := mcp.LoadMcpServerConfig("mcp-server.json")
-	if err != nil {
-		log.Errorf("Failed to load MCP server configuration: %v", err)
-	}
-	mcpClients := make([]*mcp.Client, 0)
-	for k, v := range mcpServerMap {
-		mcpClient := mcp.NewMcpToolProvider(k, v)
-		if err := mcpClient.RefreshTools(context.Background()); err != nil {
-			log.Errorf("Failed to refresh tools for MCP server %s: %v", k, err)
-			continue
-		}
-		mcpClients = append(mcpClients, mcpClient)
+	mcpStore := mcp.NewSQLMcpStore(db)
+	mcpManager := mcp.NewManager(mcpStore)
+	if err := mcpManager.LoadSystemMcpServers("mcp-server.json"); err != nil {
+		log.Errorf("Failed to load system MCP servers: %v", err)
 	}
 
-	// Create context engine and policies
+	mcpClients := make([]*mcp.Client, 0)
+	systemMcps, _ := mcpManager.GetSystemMcpServers()
+	for _, mcpServer := range systemMcps {
+		if mcpServer.Status == mcp.McpStatusEnabled {
+			mcpClient := mcp.NewMcpToolProvider(mcpServer.Name, mcpServer.Config)
+			if err := mcpClient.RefreshTools(context.Background()); err != nil {
+				log.Errorf("Failed to refresh tools for MCP server %s: %v", mcpServer.Name, err)
+				continue
+			}
+			mcpClients = append(mcpClients, mcpClient)
+		}
+	}
+
 	summarizer := context2.NewLLMSummarizer(appConf.LLMProviders.BackModel, 200)
 	policies := []context2.Policy{
 		context2.NewOffloadPolicy(db, 0.4, 0, 100),
@@ -88,9 +111,8 @@ func main() {
 		skillsDir = "skills"
 	}
 
-	skillStore := skill.NewSQLSkillStore(db)
-
-	skillManager := skill.NewManager(skillStore, skillsDir)
+	skillStore := skill2.NewSQLSkillStore(db)
+	skillManager := skill2.NewManager(skillStore, skillsDir)
 	if err := skillManager.LoadInstalledSkills(); err != nil {
 		log.Errorf("Failed to load installed skills: %v", err)
 	}
@@ -106,8 +128,9 @@ func main() {
 		skillManager)
 
 	skillAPI := server.NewSkillAPI(skillManager)
+	mcpAPI := server.NewMcpAPI(mcpManager)
 
-	s := server.NewServer(appConf.ServerAddress, db, mgr, skillAPI)
+	s := server.NewServer(appConf.ServerAddress, db, mgr, skillAPI, mcpAPI)
 	s.Run()
 	defer s.Stop()
 
