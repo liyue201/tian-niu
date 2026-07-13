@@ -71,7 +71,7 @@ func (u *LLMMemoryUpdater) Update(ctx context.Context, oldMemory MemoryContent, 
 	respContent := resp.Choices[0].Message.Content
 	newMemory := MemoryContent{}
 	newMemory.GlobalMemory = extractXMLTag(respContent, "global")
-	newMemory.WorkspaceMemory = extractXMLTag(respContent, "workspace")
+	newMemory.ConversationMemory = extractXMLTag(respContent, "workspace")
 
 	return newMemory, nil
 }
