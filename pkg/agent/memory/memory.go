@@ -40,8 +40,8 @@ func (m *MultiLevelMemory) userGlobalMemoryKey(userId string) string {
 	return fmt.Sprintf("global_memory_%s", userId)
 }
 
-func (m *MultiLevelMemory) workspaceMemoryKey(conversationId string) string {
-	return fmt.Sprintf("workspace_memory_%s", conversationId)
+func (m *MultiLevelMemory) conversationMemoryKey(conversationId string) string {
+	return fmt.Sprintf("conversation_memory_%s", conversationId)
 }
 
 func (m *MultiLevelMemory) getMemoryContent(ctx context.Context, userId string, conversationId string) (MemoryContent, error) {
@@ -49,13 +49,13 @@ func (m *MultiLevelMemory) getMemoryContent(ctx context.Context, userId string, 
 	if err != nil {
 		return MemoryContent{}, err
 	}
-	workspaceMemory, err := m.storage.Load(ctx, m.workspaceMemoryKey(conversationId))
+	conversationMemory, err := m.storage.Load(ctx, m.conversationMemoryKey(conversationId))
 	if err != nil {
 		return MemoryContent{}, err
 	}
 	return MemoryContent{
-		GlobalMemory:    globalMemory,
-		WorkspaceMemory: workspaceMemory,
+		GlobalMemory:       globalMemory,
+		ConversationMemory: conversationMemory,
 	}, nil
 }
 
@@ -77,7 +77,7 @@ func (m *MultiLevelMemory) Update(ctx context.Context, userId string, conversati
 	if err := m.storage.Store(ctx, m.userGlobalMemoryKey(userId), newMemory.GlobalMemory); err != nil {
 		return err
 	}
-	if err := m.storage.Store(ctx, m.workspaceMemoryKey(conversationId), newMemory.WorkspaceMemory); err != nil {
+	if err := m.storage.Store(ctx, m.conversationMemoryKey(conversationId), newMemory.ConversationMemory); err != nil {
 		return err
 	}
 
@@ -85,14 +85,14 @@ func (m *MultiLevelMemory) Update(ctx context.Context, userId string, conversati
 }
 
 type MemoryContent struct {
-	GlobalMemory    string `json:"global_memory,omitempty"`
-	WorkspaceMemory string `json:"workspace_memory,omitempty"`
+	GlobalMemory       string `json:"global_memory,omitempty"`
+	ConversationMemory string `json:"conversation_memory,omitempty"`
 }
 
 func (m *MemoryContent) String() string {
 	prompt := memoryPromptTemplate
 	prompt = strings.ReplaceAll(prompt, "{global_memory}", m.GlobalMemory)
-	prompt = strings.ReplaceAll(prompt, "{workspace_memory}", m.WorkspaceMemory)
+	prompt = strings.ReplaceAll(prompt, "{conversation_memory}", m.ConversationMemory)
 	return prompt
 }
 
@@ -100,7 +100,7 @@ const memoryPromptTemplate = `### Global Memory
 Here is the memory about the user among all conversations:
 {global_memory}
 
-### Workspace Memory
-The memory of the current workspace is:
-{workspace_memory}
+### Conversation Memory
+The memory of the current conversation is:
+{conversation_memory}
 `
