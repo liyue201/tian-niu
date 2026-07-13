@@ -257,14 +257,6 @@ func (m *Manager) GetSkillForUser(userID, skillName string) (*Skill, error) {
 }
 
 func (m *Manager) LoadInstalledSkills() error {
-	if err := os.MkdirAll(filepath.Join(m.skillsDir, "system"), 0755); err != nil {
-		return fmt.Errorf("failed to create system skills directory: %w", err)
-	}
-
-	if err := os.MkdirAll(filepath.Join(m.skillsDir, "users"), 0755); err != nil {
-		return fmt.Errorf("failed to create users skills directory: %w", err)
-	}
-
 	if err := m.loadSystemSkills(); err != nil {
 		log.Warnf("Failed to load system skills: %v", err)
 	}
