@@ -23,7 +23,11 @@ import (
 
 type AppConfig struct {
 	ServerAddress string `yaml:"server_address"`
-	LLMProviders  struct {
+	Database      struct {
+		Type string `yaml:"type"`
+		DSN  string `yaml:"dsn"`
+	} `yaml:"database"`
+	LLMProviders struct {
 		FrontModel shared.ModelConfig `yaml:"front_model"`
 		BackModel  shared.ModelConfig `yaml:"back_model"`
 	} `yaml:"llm_providers"`
@@ -48,11 +52,26 @@ func main() {
 		panic(err)
 	}
 
-	dbPath := os.Getenv("DB_PATH")
-	if dbPath == "" {
-		dbPath = "test.db"
+	dbType := os.Getenv("DB_TYPE")
+	if dbType == "" {
+		dbType = appConf.Database.Type
+		if dbType == "" {
+			dbType = "sqlite"
+		}
 	}
-	db, err := repository.NewSQLStore(dbPath)
+
+	dbDSN := os.Getenv("DB_DSN")
+	if dbDSN == "" {
+		dbDSN = appConf.Database.DSN
+		if dbDSN == "" {
+			dbDSN = "test.db"
+		}
+	}
+
+	db, err := repository.NewSQLStore(repository.DBConfig{
+		Type: dbType,
+		DSN:  dbDSN,
+	})
 	if err != nil {
 		log.Errorf("Failed to initialize database: %v", err)
 		panic(err)

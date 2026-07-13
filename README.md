@@ -15,6 +15,9 @@ A lightweight AI chat agent built with Go, featuring streaming message processin
 - ✅ **Markdown Rendering**: Full markdown support (GFM) for AI responses and tool results
 - ✅ **JWT Authentication**: User registration, login, and token-based access control
 - ✅ **Context Management**: Automatic message summarization and content offloading to manage context window
+- ✅ **Skill Management**: Install, uninstall, and manage skills with support for system and user skills
+- ✅ **MCP Server Management**: Install, uninstall, and manage MCP servers via web interface
+- ✅ **Multi-database Support**: SQLite, PostgreSQL, and MySQL
 - [ ] **File Processing**: Support for file upload and analysis (RAG)
 - [ ] **Message Editing**: Edit and recall sent messages
 - [ ] **Message Reply**: Quote specific messages for contextual responses
@@ -24,7 +27,6 @@ A lightweight AI chat agent built with Go, featuring streaming message processin
 - [ ] **Web Search**: Real-time internet search capabilities
 - [ ] **User Preferences**: Store personalized settings and role presets
 - [ ] **API Usage Stats**: Track API calls and token consumption per user
-- [ ] **Skill System**: Skill store, management (install/uninstall), and custom skill creation
 - [ ] **Multimodal Support**: Image generation (text-to-image) and image understanding (vision)
 - [ ] **Voice Capabilities**: Speech-to-text and text-to-speech
 - [ ] **Social Sharing**: Share chat history and collaborate with others
@@ -42,7 +44,7 @@ A lightweight AI chat agent built with Go, featuring streaming message processin
 - Go 1.26.4 + Gin
 - OpenAI Go SDK v3
 - MCP Go SDK v1
-- GORM + SQLite
+- GORM + SQLite/PostgreSQL/MySQL
 - Redis for memory storage
 - JWT authentication (golang-jwt/v5)
 
@@ -56,8 +58,7 @@ A lightweight AI chat agent built with Go, featuring streaming message processin
 cp config.example.yaml config.yaml
 ```
 
-Edit `config.yaml` with your LLM provider and tool settings:
-
+Edit `config.yaml` with your LLM provider and database settings:
 
 2. **(Optional) Configure MCP servers**
 
@@ -68,16 +69,36 @@ Edit `mcp-server.json` to connect external tool servers:
 ```bash
 go run ./tianniu/main.go
 ```
+
 The server runs on `http://localhost:8080`.
 
 ## Frontend Integration
 Refer to the workspace repository: https://github.com/tianniu-ai/tianniu-workspace
 
+### Database Configuration
+
+The application supports three database types: SQLite, PostgreSQL, and MySQL. Configure in `config.yaml`:
+
+```yaml
+database:
+  type: "sqlite"
+  dsn: "test.db"
+```
+
+**Supported database types:**
+
+| Type | DSN Format |
+|------|------------|
+| **sqlite** | Path to database file (e.g., `test.db`) |
+| **postgres** | `host=localhost port=5432 user=postgres password=postgres dbname=tianniu sslmode=disable` |
+| **mysql** | `user:password@tcp(localhost:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local` |
+
 ### Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DB_PATH` | SQLite database file path | `test.db` |
+| `DB_TYPE` | Database type (`sqlite`, `postgres`, `mysql`) | `sqlite` |
+| `DB_DSN` | Database connection string | `test.db` |
 | `LEVELDB_PATH` | LevelDB storage path for memory and offloaded content | `leveldb_data` |
 | `JWT_SECRET` | Secret key for JWT token signing (≥16 bytes) | `tian-niu-dev-secret-change-in-production` |
 | `GIN_MODE` | Gin run mode (`debug`/`release`) | `debug` |
@@ -133,6 +154,16 @@ MCP tools are automatically discovered and registered as agent tools at startup.
 | DELETE | `/api/conversation/:id` | Yes | Delete a conversation |
 | POST | `/api/conversation/:id/message` | Yes | Send a message (SSE stream) |
 | GET | `/api/conversation/:id/message` | Yes | List conversation messages |
+| GET | `/api/skills` | Yes | List all skills |
+| POST | `/api/skills/install` | Yes | Install a skill |
+| POST | `/api/skills/:id/uninstall` | Yes | Uninstall a skill |
+| POST | `/api/skills/:id/enable` | Yes | Enable a skill |
+| POST | `/api/skills/:id/disable` | Yes | Disable a skill |
+| GET | `/api/mcps` | Yes | List all MCP servers |
+| POST | `/api/mcps/install` | Yes | Install an MCP server |
+| POST | `/api/mcps/:id/uninstall` | Yes | Uninstall an MCP server |
+| POST | `/api/mcps/:id/enable` | Yes | Enable an MCP server |
+| POST | `/api/mcps/:id/disable` | Yes | Disable an MCP server |
 
 ## Preview
 
