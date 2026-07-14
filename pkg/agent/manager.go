@@ -7,7 +7,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/tianniu-ai/tianniu/pkg/agent/context"
 	"github.com/tianniu-ai/tianniu/pkg/agent/llm"
-	"github.com/tianniu-ai/tianniu/pkg/agent/longterm"
 	"github.com/tianniu-ai/tianniu/pkg/agent/mcp"
 	"github.com/tianniu-ai/tianniu/pkg/agent/memory"
 	skill2 "github.com/tianniu-ai/tianniu/pkg/agent/skill"
@@ -26,7 +25,7 @@ type Manager struct {
 	policies       []context.Policy
 	memory         memory.Memory
 	skillManager   *skill2.Manager
-	longTermMemory *longterm.LongTermMemoryManager
+	longTermMemory *memory.LongTermMemoryManager
 
 	agents map[string]*Agent
 	sync.RWMutex
@@ -41,7 +40,7 @@ func NewManager(
 	policies []context.Policy,
 	memory memory.Memory,
 	skillManager *skill2.Manager,
-	longTermMemory *longterm.LongTermMemoryManager) *Manager {
+	longTermMemory *memory.LongTermMemoryManager) *Manager {
 	manger := &Manager{
 		repo:           repo,
 		modelConf:      modelConf,

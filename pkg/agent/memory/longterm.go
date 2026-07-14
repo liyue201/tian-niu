@@ -1,4 +1,4 @@
-package longterm
+package memory
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"github.com/openai/openai-go/v3"
 	log "github.com/sirupsen/logrus"
 	"github.com/tianniu-ai/tianniu/pkg/agent/llm"
+	"github.com/tianniu-ai/tianniu/pkg/agent/rag"
 	"github.com/tianniu-ai/tianniu/pkg/shared"
 )
 
@@ -30,22 +31,22 @@ func DefaultStrategyConfig() StrategyConfig {
 }
 
 type LongTermMemoryManager struct {
-	vectorStore      *PGVectorStore
-	embeddingService *HTTPEmbeddingService
-	rerankService    *HTTPRerankService
+	vectorStore      *rag.PGVectorStore
+	embeddingService *rag.HTTPEmbeddingService
+	rerankService    *rag.HTTPRerankService
 	llmClient        openai.Client
 	modelConf        shared.ModelConfig
 	config           StrategyConfig
 
-	lastTopicEmbedding Vector
+	lastTopicEmbedding rag.Vector
 	lastSaveRound      int
 	accumulatedTokens  int
 }
 
 func NewLongTermMemoryManager(
-	vectorStore *PGVectorStore,
-	embeddingService *HTTPEmbeddingService,
-	rerankService *HTTPRerankService,
+	vectorStore *rag.PGVectorStore,
+	embeddingService *rag.HTTPEmbeddingService,
+	rerankService *rag.HTTPRerankService,
 	modelConf shared.ModelConfig,
 	configs ...StrategyConfig,
 ) *LongTermMemoryManager {
@@ -167,7 +168,7 @@ func (m *LongTermMemoryManager) detectTopicChange(messages []shared.OpenAIMessag
 	return false, nil
 }
 
-func cosineSimilarity(a, b Vector) float32 {
+func cosineSimilarity(a, b rag.Vector) float32 {
 	if len(a) != len(b) {
 		return 0
 	}
@@ -229,7 +230,7 @@ func (m *LongTermMemoryManager) saveMemory(ctx context.Context, userID, conversa
 	return nil
 }
 
-func (m *LongTermMemoryManager) RetrieveMemory(ctx context.Context, userID, query string, limit int) ([]MemoryMatch, error) {
+func (m *LongTermMemoryManager) RetrieveMemory(ctx context.Context, userID, query string, limit int) ([]rag.MemoryMatch, error) {
 	queryEmbedding, err := m.embeddingService.Embed(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to embed query: %w", err)

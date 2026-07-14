@@ -7,7 +7,6 @@ import (
 
 	"github.com/openai/openai-go/v3"
 	log "github.com/sirupsen/logrus"
-	"github.com/tianniu-ai/tianniu/pkg/agent/longterm"
 	"github.com/tianniu-ai/tianniu/pkg/agent/memory"
 	"github.com/tianniu-ai/tianniu/pkg/repository"
 	"github.com/tianniu-ai/tianniu/pkg/shared"
@@ -30,7 +29,7 @@ type Engine struct {
 	onPolicyEvent        func(policyName string, running bool, err error)
 	contextTokens        int
 	contextWindow        int
-	longTermMemory       *longterm.LongTermMemoryManager
+	longTermMemory       *memory.LongTermMemoryManager
 	turnCount            int
 }
 
@@ -46,7 +45,7 @@ type TurnDraft struct {
 	NewMessages []shared.OpenAIMessage
 }
 
-func NewContextEngine(memory memory.Memory, userId string, conversationId string, policies []Policy, repo *repository.SQLStore, longTermMemory *longterm.LongTermMemoryManager) *Engine {
+func NewContextEngine(memory memory.Memory, userId string, conversationId string, policies []Policy, repo *repository.SQLStore, longTermMemory *memory.LongTermMemoryManager) *Engine {
 	return &Engine{
 		memory:         memory,
 		userId:         userId,

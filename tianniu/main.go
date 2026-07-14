@@ -11,9 +11,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/tianniu-ai/tianniu/pkg/agent"
 	context2 "github.com/tianniu-ai/tianniu/pkg/agent/context"
-	"github.com/tianniu-ai/tianniu/pkg/agent/longterm"
 	"github.com/tianniu-ai/tianniu/pkg/agent/mcp"
 	"github.com/tianniu-ai/tianniu/pkg/agent/memory"
+	"github.com/tianniu-ai/tianniu/pkg/agent/rag"
 	skill2 "github.com/tianniu-ai/tianniu/pkg/agent/skill"
 	"github.com/tianniu-ai/tianniu/pkg/agent/tool"
 	"github.com/tianniu-ai/tianniu/pkg/repository"
@@ -119,12 +119,12 @@ func main() {
 		log.Errorf("Failed to load installed skills: %v", err)
 	}
 
-	var longTermMemoryManager *longterm.LongTermMemoryManager
+	var longTermMemoryManager *memory.LongTermMemoryManager
 	if appConf.LongTermMemory.Enabled {
 		log.Info("Initializing long-term memory system...")
 
 		vectorDBConfig := appConf.LongTermMemory.VectorDB
-		vectorStore, err := longterm.NewPGVectorStore(longterm.Config{
+		vectorStore, err := rag.NewPGVectorStore(rag.Config{
 			Host:      vectorDBConfig.Host,
 			Port:      vectorDBConfig.Port,
 			User:      vectorDBConfig.User,
@@ -136,7 +136,7 @@ func main() {
 			log.Warnf("Failed to initialize vector store: %v. Long-term memory will be disabled.", err)
 		} else {
 			embeddingConfig := appConf.LongTermMemory.EmbeddingService
-			embeddingService := longterm.NewHTTPEmbeddingService(longterm.HTTPEmbeddingConfig{
+			embeddingService := rag.NewHTTPEmbeddingService(rag.HTTPEmbeddingConfig{
 				APIKey:     embeddingConfig.APIKey,
 				BaseURL:    embeddingConfig.BaseURL,
 				Model:      embeddingConfig.Model,
@@ -144,19 +144,19 @@ func main() {
 			})
 
 			rerankConfig := appConf.LongTermMemory.RerankService
-			rerankService := longterm.NewHTTPRerankService(longterm.HTTPRerankConfig{
+			rerankService := rag.NewHTTPRerankService(rag.HTTPRerankConfig{
 				APIKey:  rerankConfig.APIKey,
 				BaseURL: rerankConfig.BaseURL,
 				Model:   rerankConfig.Model,
 			})
 
 			strategyConfig := appConf.LongTermMemory.Strategy
-			longTermMemoryManager = longterm.NewLongTermMemoryManager(
+			longTermMemoryManager = memory.NewLongTermMemoryManager(
 				vectorStore,
 				embeddingService,
 				rerankService,
 				appConf.LLMProviders.BackModel,
-				longterm.StrategyConfig{
+				memory.StrategyConfig{
 					QuickSaveRounds:          strategyConfig.QuickSaveRounds,
 					RegularSaveRounds:        strategyConfig.RegularSaveRounds,
 					ForceSaveRounds:          strategyConfig.ForceSaveRounds,
