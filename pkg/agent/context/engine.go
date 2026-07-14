@@ -81,12 +81,12 @@ func (c *Engine) Init(systemPrompt string, budget TokenBudget) {
 }
 
 func (c *Engine) BuildRequestMessages() []shared.OpenAIMessage {
-	result := make([]shared.OpenAIMessage, 0, len(c.messages)+1)
+	result := make([]shared.OpenAIMessage, 0, 2)
 	if c.systemPromptTemplate != "" {
 		result = append(result, openai.SystemMessage(c.BuildSystemPrompt()))
 	}
-	for i := range c.messages {
-		result = append(result, c.messages[i].Message)
+	if c.currentUserMsg.GetRole() != nil && *c.currentUserMsg.GetRole() != "" {
+		result = append(result, c.currentUserMsg)
 	}
 	return result
 }
@@ -177,7 +177,7 @@ func (c *Engine) BuildSystemPrompt() string {
 	replaceMap := make(map[string]string)
 
 	if c.memory != nil {
-		replaceMap["{memory}"] = c.memory.GetShortTermMemory(c.userId, c.conversationId)
+		replaceMap["{short_term_memory}"] = c.memory.GetShortTermMemory(c.userId, c.conversationId)
 
 		workingMessages := c.memory.GetWorkingMemory()
 		replaceMap["{working_memory}"] = c.formatWorkingMemory(workingMessages)
@@ -189,7 +189,7 @@ func (c *Engine) BuildSystemPrompt() string {
 		}
 		replaceMap["{long_term_memory}"] = longTermMem
 	} else {
-		replaceMap["{memory}"] = ""
+		replaceMap["{short_term_memory}"] = ""
 		replaceMap["{working_memory}"] = ""
 		replaceMap["{long_term_memory}"] = ""
 	}

@@ -162,7 +162,6 @@ func (m *LongTermMemoryManager) detectTopicChange(messages []shared.OpenAIMessag
 		return false, nil
 	}
 
-	log.Infof("embedding message: %v", content)
 	currentEmbedding, err := m.embeddingService.Embed(context.Background(), content)
 	if err != nil {
 		log.Errorf("failed to embed message: %v", err)

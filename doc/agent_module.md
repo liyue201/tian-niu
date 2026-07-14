@@ -145,7 +145,7 @@ func (e *Engine) BuildSystemPrompt() string {
     
     if e.memory != nil {
         // Short-term memory (user preferences)
-        replaceMap["{memory}"] = e.memory.GetShortTermMemory(e.userId, e.conversationId)
+        replaceMap["{short_term_memory}"] = e.memory.GetShortTermMemory(e.userId, e.conversationId)
         
         // Working memory (current conversation)
         workingMessages := e.memory.GetWorkingMemory()
