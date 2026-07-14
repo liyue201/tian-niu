@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/openai/openai-go/v3"
@@ -38,6 +39,8 @@ type LongTermMemoryManager struct {
 	modelConf        shared.ModelConfig
 	config           StrategyConfig
 
+	messageBuffer      []shared.OpenAIMessage
+	bufferMaxLength    int
 	lastTopicEmbedding rag.Vector
 	lastSaveRound      int
 	accumulatedTokens  int
@@ -62,11 +65,19 @@ func NewLongTermMemoryManager(
 		llmClient:        llm.NewLLMClient(modelConf),
 		modelConf:        modelConf,
 		config:           config,
+		messageBuffer:    make([]shared.OpenAIMessage, 0),
+		bufferMaxLength:  50,
 		lastSaveRound:    0,
 	}
 }
 
 func (m *LongTermMemoryManager) ProcessConversation(ctx context.Context, userID, conversationID string, messages []shared.OpenAIMessage, currentRound int) error {
+	m.messageBuffer = append(m.messageBuffer, messages...)
+
+	if m.bufferMaxLength > 0 && len(m.messageBuffer) > m.bufferMaxLength {
+		m.messageBuffer = m.messageBuffer[len(m.messageBuffer)-m.bufferMaxLength:]
+	}
+
 	tokens := m.countTokens(messages)
 	m.accumulatedTokens += tokens
 
@@ -78,13 +89,14 @@ func (m *LongTermMemoryManager) ProcessConversation(ctx context.Context, userID,
 
 	log.Infof("Saving long-term memory for user %s, conversation %s, reason: %s", userID, conversationID, reason)
 
-	err := m.saveMemory(ctx, userID, conversationID, messages, currentRound)
+	err := m.saveMemory(ctx, userID, conversationID, m.messageBuffer, currentRound)
 	if err != nil {
 		return fmt.Errorf("failed to save memory: %w", err)
 	}
 
 	m.lastSaveRound = currentRound
 	m.accumulatedTokens = 0
+	m.messageBuffer = make([]shared.OpenAIMessage, 0)
 
 	return nil
 }
@@ -188,7 +200,7 @@ func cosineSimilarity(a, b rag.Vector) float32 {
 }
 
 func magnitude(x float32) float64 {
-	return float64(x)
+	return math.Sqrt(float64(x))
 }
 
 func (m *LongTermMemoryManager) countTokens(messages []shared.OpenAIMessage) int {
@@ -216,8 +228,6 @@ func (m *LongTermMemoryManager) saveMemory(ctx context.Context, userID, conversa
 		return fmt.Errorf("failed to embed summary: %w", err)
 	}
 
-	log.Infof("embedding: %v", embedding)
-
 	if m.lastTopicEmbedding == nil {
 		m.lastTopicEmbedding = embedding
 	}
@@ -244,8 +254,6 @@ func (m *LongTermMemoryManager) RetrieveMemory(ctx context.Context, userID, quer
 	if len(candidates) == 0 {
 		return candidates, nil
 	}
-
-	log.Infof("candidates: %v", candidates)
 
 	reranked, err := m.rerankService.Rerank(ctx, query, candidates)
 	if err != nil {

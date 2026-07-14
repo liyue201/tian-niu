@@ -2,7 +2,6 @@ package memory
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/tianniu-ai/tianniu/pkg/shared"
@@ -10,78 +9,68 @@ import (
 )
 
 type Memory interface {
-	String(userId, conversationId string) string
-	Update(ctx context.Context, userId, conversationId string, newMessages []shared.OpenAIMessage) error
+	GetShortTermMemory(userId, conversationId string) string
+	GetWorkingMemory() []shared.OpenAIMessage
+	Update(ctx context.Context, userId, conversationId string, newMessages []shared.OpenAIMessage, turnCount int) error
+	GetLongTermMemory(ctx context.Context, userId, query string) (string, error)
+	Flush(ctx context.Context, userId, conversationId string) error
 }
 
 type MultiLevelMemory struct {
-	storage storage.Storage
-
-	updater MemoryUpdater
+	workingMemory   *WorkingMemory
+	shortTermMemory *ShortTermMemory
+	longTermMemory  LongTermMemoryProvider
 }
 
-func NewMultiLevelMemory(storage storage.Storage, u MemoryUpdater) *MultiLevelMemory {
-	m := &MultiLevelMemory{
-		storage: storage,
-		updater: u,
+type LongTermMemoryProvider interface {
+	ProcessConversation(ctx context.Context, userId, conversationId string, messages []shared.OpenAIMessage, turnCount int) error
+	GetMemoryPrompt(ctx context.Context, userId, query string) (string, error)
+}
+
+func NewMultiLevelMemory(storage storage.Storage, updater *SmartMemoryUpdater, longTermMemory LongTermMemoryProvider) *MultiLevelMemory {
+	return &MultiLevelMemory{
+		workingMemory:   NewWorkingMemory(100),
+		shortTermMemory: NewShortTermMemory(storage, updater),
+		longTermMemory:  longTermMemory,
 	}
-	return m
 }
 
-func (m *MultiLevelMemory) String(userId string, conversationId string) string {
-	content, err := m.getMemoryContent(context.Background(), userId, conversationId)
-	if err != nil {
-		return ""
-	}
-	return content.String()
+func (m *MultiLevelMemory) GetShortTermMemory(userId string, conversationId string) string {
+	shortTermContent := m.shortTermMemory.GetMemory(userId, conversationId)
+	return shortTermContent
 }
 
-func (m *MultiLevelMemory) userGlobalMemoryKey(userId string) string {
-	return fmt.Sprintf("global_memory_%s", userId)
-}
-
-func (m *MultiLevelMemory) conversationMemoryKey(conversationId string) string {
-	return fmt.Sprintf("conversation_memory_%s", conversationId)
-}
-
-func (m *MultiLevelMemory) getMemoryContent(ctx context.Context, userId string, conversationId string) (MemoryContent, error) {
-	globalMemory, err := m.storage.Load(ctx, m.userGlobalMemoryKey(userId))
-	if err != nil {
-		return MemoryContent{}, err
-	}
-	conversationMemory, err := m.storage.Load(ctx, m.conversationMemoryKey(conversationId))
-	if err != nil {
-		return MemoryContent{}, err
-	}
-	return MemoryContent{
-		GlobalMemory:       globalMemory,
-		ConversationMemory: conversationMemory,
-	}, nil
-}
-
-func (m *MultiLevelMemory) Update(ctx context.Context, userId string, conversationId string, newMessages []shared.OpenAIMessage) error {
-	if len(newMessages) == 0 {
-		return nil
-	}
-
-	content, err := m.getMemoryContent(ctx, userId, conversationId)
-	if err != nil {
+func (m *MultiLevelMemory) Update(ctx context.Context, userId, conversationId string, newMessages []shared.OpenAIMessage, turnCount int) error {
+	if err := m.workingMemory.Add(newMessages); err != nil {
 		return err
 	}
 
-	newMemory, err := m.updater.Update(ctx, content, newMessages)
-	if err != nil {
+	if err := m.shortTermMemory.Add(ctx, userId, conversationId, newMessages); err != nil {
 		return err
 	}
 
-	if err := m.storage.Store(ctx, m.userGlobalMemoryKey(userId), newMemory.GlobalMemory); err != nil {
-		return err
-	}
-	if err := m.storage.Store(ctx, m.conversationMemoryKey(conversationId), newMemory.ConversationMemory); err != nil {
-		return err
+	if m.longTermMemory != nil {
+		if err := m.longTermMemory.ProcessConversation(ctx, userId, conversationId, newMessages, turnCount); err != nil {
+			return err
+		}
 	}
 
 	return nil
+}
+
+func (m *MultiLevelMemory) GetLongTermMemory(ctx context.Context, userId, query string) (string, error) {
+	if m.longTermMemory != nil {
+		return m.longTermMemory.GetMemoryPrompt(ctx, userId, query)
+	}
+	return "", nil
+}
+
+func (m *MultiLevelMemory) Flush(ctx context.Context, userId, conversationId string) error {
+	return m.shortTermMemory.Flush(ctx, userId, conversationId)
+}
+
+func (m *MultiLevelMemory) GetWorkingMemory() []shared.OpenAIMessage {
+	return m.workingMemory.GetMessages()
 }
 
 type MemoryContent struct {
@@ -102,5 +91,4 @@ Here is the memory about the user among all conversations:
 
 ### Conversation Memory
 The memory of the current conversation is:
-{conversation_memory}
-`
+{conversation_memory}`
