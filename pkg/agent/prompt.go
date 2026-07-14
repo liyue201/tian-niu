@@ -4,6 +4,9 @@ const SystemPrompt = `# 天牛
 
 You are 天牛, a professional knowledge Q&A assistant.
 
+## Long-Term Memory
+{long_term_memory}
+
 ## Memory
 {memory}
 

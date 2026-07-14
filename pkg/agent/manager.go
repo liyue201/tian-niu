@@ -7,6 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/tianniu-ai/tianniu/pkg/agent/context"
 	"github.com/tianniu-ai/tianniu/pkg/agent/llm"
+	"github.com/tianniu-ai/tianniu/pkg/agent/longterm"
 	"github.com/tianniu-ai/tianniu/pkg/agent/mcp"
 	"github.com/tianniu-ai/tianniu/pkg/agent/memory"
 	skill2 "github.com/tianniu-ai/tianniu/pkg/agent/skill"
@@ -16,15 +17,16 @@ import (
 )
 
 type Manager struct {
-	repo         *repository.SQLStore
-	modelConf    shared.ModelConfig
-	client       openai.Client
-	tools        []tool.Tool
-	systemPrompt string
-	mcpClients   []*mcp.Client
-	policies     []context.Policy
-	memory       memory.Memory
-	skillManager *skill2.Manager
+	repo           *repository.SQLStore
+	modelConf      shared.ModelConfig
+	client         openai.Client
+	tools          []tool.Tool
+	systemPrompt   string
+	mcpClients     []*mcp.Client
+	policies       []context.Policy
+	memory         memory.Memory
+	skillManager   *skill2.Manager
+	longTermMemory *longterm.LongTermMemoryManager
 
 	agents map[string]*Agent
 	sync.RWMutex
@@ -38,18 +40,20 @@ func NewManager(
 	mcpClients []*mcp.Client,
 	policies []context.Policy,
 	memory memory.Memory,
-	skillManager *skill2.Manager) *Manager {
+	skillManager *skill2.Manager,
+	longTermMemory *longterm.LongTermMemoryManager) *Manager {
 	manger := &Manager{
-		repo:         repo,
-		modelConf:    modelConf,
-		client:       llm.NewLLMClient(modelConf),
-		tools:        tools,
-		systemPrompt: systemPrompt,
-		mcpClients:   mcpClients,
-		policies:     policies,
-		memory:       memory,
-		skillManager: skillManager,
-		agents:       make(map[string]*Agent),
+		repo:           repo,
+		modelConf:      modelConf,
+		client:         llm.NewLLMClient(modelConf),
+		tools:          tools,
+		systemPrompt:   systemPrompt,
+		mcpClients:     mcpClients,
+		policies:       policies,
+		memory:         memory,
+		skillManager:   skillManager,
+		longTermMemory: longTermMemory,
+		agents:         make(map[string]*Agent),
 	}
 	return manger
 }
@@ -66,7 +70,7 @@ func (m *Manager) GetAgent(userId, conversationId string) *Agent {
 	m.Lock()
 	defer m.Unlock()
 
-	engine := context.NewContextEngine(m.memory, userId, conversationId, m.policies, m.repo)
+	engine := context.NewContextEngine(m.memory, userId, conversationId, m.policies, m.repo, m.longTermMemory)
 
 	skillTools := m.loadSkillTools(userId)
 

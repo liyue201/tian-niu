@@ -7,6 +7,7 @@ import (
 
 	"github.com/openai/openai-go/v3"
 	log "github.com/sirupsen/logrus"
+	"github.com/tianniu-ai/tianniu/pkg/agent/longterm"
 	"github.com/tianniu-ai/tianniu/pkg/agent/memory"
 	"github.com/tianniu-ai/tianniu/pkg/repository"
 	"github.com/tianniu-ai/tianniu/pkg/shared"
@@ -21,6 +22,7 @@ type Engine struct {
 	memory               memory.Memory
 	userId               string
 	conversationId       string
+	currentUserMsg       shared.OpenAIMessage
 	repo                 *repository.SQLStore
 	systemPromptTemplate string
 	messages             []messageWrap
@@ -28,6 +30,8 @@ type Engine struct {
 	onPolicyEvent        func(policyName string, running bool, err error)
 	contextTokens        int
 	contextWindow        int
+	longTermMemory       *longterm.LongTermMemoryManager
+	turnCount            int
 }
 
 type TokenBudget struct {
@@ -42,7 +46,7 @@ type TurnDraft struct {
 	NewMessages []shared.OpenAIMessage
 }
 
-func NewContextEngine(memory memory.Memory, userId string, conversationId string, policies []Policy, repo *repository.SQLStore) *Engine {
+func NewContextEngine(memory memory.Memory, userId string, conversationId string, policies []Policy, repo *repository.SQLStore, longTermMemory *longterm.LongTermMemoryManager) *Engine {
 	return &Engine{
 		memory:         memory,
 		userId:         userId,
@@ -51,6 +55,8 @@ func NewContextEngine(memory memory.Memory, userId string, conversationId string
 		policies:       policies,
 		messages:       make([]messageWrap, 0),
 		contextWindow:  200000,
+		longTermMemory: longTermMemory,
+		turnCount:      0,
 	}
 }
 
@@ -68,6 +74,7 @@ func (c *Engine) Init(systemPrompt string, budget TokenBudget) {
 	if len(historyMsgs) == 0 {
 		return
 	}
+	c.turnCount = len(historyMsgs)
 	msgs := buildHistory(historyMsgs, historyMsgs[0].ID)
 
 	for i := range msgs {
@@ -88,6 +95,7 @@ func (c *Engine) BuildRequestMessages() []shared.OpenAIMessage {
 }
 
 func (c *Engine) StartTurn(userMsg shared.OpenAIMessage) TurnDraft {
+	c.currentUserMsg = userMsg
 	return TurnDraft{
 		NewMessages: []shared.OpenAIMessage{userMsg},
 	}
@@ -109,6 +117,16 @@ func (c *Engine) CommitTurn(ctx context.Context, draft TurnDraft, usage Usage) e
 	if err != nil {
 		return err
 	}
+
+	c.turnCount++
+
+	if c.longTermMemory != nil {
+		err = c.longTermMemory.ProcessConversation(ctx, c.userId, c.conversationId, draft.NewMessages, c.turnCount)
+		if err != nil {
+			log.Warnf("failed to process long-term memory: %v", err)
+		}
+	}
+
 	return nil
 }
 
@@ -165,11 +183,32 @@ func (c *Engine) BuildSystemPrompt() string {
 		replaceMap["{memory}"] = ""
 	}
 
+	if c.longTermMemory != nil {
+		longTermMem, err := c.longTermMemory.GetMemoryPrompt(context.Background(), c.userId, c.getCurrentUserQuery())
+		if err != nil {
+			log.Warnf("failed to get long-term memory prompt: %v", err)
+			longTermMem = ""
+		}
+		replaceMap["{long_term_memory}"] = longTermMem
+	} else {
+		replaceMap["{long_term_memory}"] = ""
+	}
+
 	prompt := c.systemPromptTemplate
 	for k, v := range replaceMap {
 		prompt = strings.ReplaceAll(prompt, k, v)
 	}
 	return prompt
+}
+
+func (c *Engine) getCurrentUserQuery() string {
+	msg := c.currentUserMsg
+	contentAny := msg.GetContent().AsAny()
+	if contentStr, ok := contentAny.(*string); ok {
+		return *contentStr
+	}
+
+	return ""
 }
 
 func (c *Engine) Reset() {

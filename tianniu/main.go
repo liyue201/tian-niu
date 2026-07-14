@@ -11,6 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/tianniu-ai/tianniu/pkg/agent"
 	context2 "github.com/tianniu-ai/tianniu/pkg/agent/context"
+	"github.com/tianniu-ai/tianniu/pkg/agent/longterm"
 	"github.com/tianniu-ai/tianniu/pkg/agent/mcp"
 	"github.com/tianniu-ai/tianniu/pkg/agent/memory"
 	skill2 "github.com/tianniu-ai/tianniu/pkg/agent/skill"
@@ -31,7 +32,8 @@ type AppConfig struct {
 		FrontModel shared.ModelConfig `yaml:"front_model"`
 		BackModel  shared.ModelConfig `yaml:"back_model"`
 	} `yaml:"llm_providers"`
-	BashTool tool.BashToolConfig `yaml:"bash_tool"`
+	BashTool       tool.BashToolConfig         `yaml:"bash_tool"`
+	LongTermMemory shared.LongTermMemoryConfig `yaml:"long_term_memory"`
 }
 
 func loadAppConfig(path string) (AppConfig, error) {
@@ -117,6 +119,55 @@ func main() {
 		log.Errorf("Failed to load installed skills: %v", err)
 	}
 
+	var longTermMemoryManager *longterm.LongTermMemoryManager
+	if appConf.LongTermMemory.Enabled {
+		log.Info("Initializing long-term memory system...")
+
+		vectorDBConfig := appConf.LongTermMemory.VectorDB
+		vectorStore, err := longterm.NewPGVectorStore(longterm.Config{
+			Host:      vectorDBConfig.Host,
+			Port:      vectorDBConfig.Port,
+			User:      vectorDBConfig.User,
+			Password:  vectorDBConfig.Password,
+			Database:  vectorDBConfig.Database,
+			Dimension: vectorDBConfig.Dimension,
+		})
+		if err != nil {
+			log.Warnf("Failed to initialize vector store: %v. Long-term memory will be disabled.", err)
+		} else {
+			embeddingConfig := appConf.LongTermMemory.EmbeddingService
+			embeddingService := longterm.NewHTTPEmbeddingService(longterm.HTTPEmbeddingConfig{
+				APIKey:     embeddingConfig.APIKey,
+				BaseURL:    embeddingConfig.BaseURL,
+				Model:      embeddingConfig.Model,
+				Dimensions: embeddingConfig.Dimensions,
+			})
+
+			rerankConfig := appConf.LongTermMemory.RerankService
+			rerankService := longterm.NewHTTPRerankService(longterm.HTTPRerankConfig{
+				APIKey:  rerankConfig.APIKey,
+				BaseURL: rerankConfig.BaseURL,
+				Model:   rerankConfig.Model,
+			})
+
+			strategyConfig := appConf.LongTermMemory.Strategy
+			longTermMemoryManager = longterm.NewLongTermMemoryManager(
+				vectorStore,
+				embeddingService,
+				rerankService,
+				appConf.LLMProviders.BackModel,
+				longterm.StrategyConfig{
+					QuickSaveRounds:          strategyConfig.QuickSaveRounds,
+					RegularSaveRounds:        strategyConfig.RegularSaveRounds,
+					ForceSaveRounds:          strategyConfig.ForceSaveRounds,
+					MinTokenThreshold:        strategyConfig.MinTokenThreshold,
+					TopicSimilarityThreshold: strategyConfig.TopicSimilarityThreshold,
+				},
+			)
+			log.Info("Long-term memory system initialized successfully")
+		}
+	}
+
 	mgr := agent.NewManager(
 		db,
 		appConf.LLMProviders.FrontModel,
@@ -125,7 +176,8 @@ func main() {
 		mcpClients,
 		policies,
 		multiLevelMemory,
-		skillManager)
+		skillManager,
+		longTermMemoryManager)
 
 	skillAPI := server.NewSkillAPI(skillManager)
 	mcpAPI := server.NewMcpAPI(mcpManager)
