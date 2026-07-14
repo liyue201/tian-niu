@@ -21,6 +21,7 @@ type Engine struct {
 	memory               memory.Memory
 	userId               string
 	conversationId       string
+	currentUserMsg       shared.OpenAIMessage
 	repo                 *repository.SQLStore
 	systemPromptTemplate string
 	messages             []messageWrap
@@ -28,6 +29,7 @@ type Engine struct {
 	onPolicyEvent        func(policyName string, running bool, err error)
 	contextTokens        int
 	contextWindow        int
+	turnCount            int
 }
 
 type TokenBudget struct {
@@ -51,6 +53,7 @@ func NewContextEngine(memory memory.Memory, userId string, conversationId string
 		policies:       policies,
 		messages:       make([]messageWrap, 0),
 		contextWindow:  200000,
+		turnCount:      0,
 	}
 }
 
@@ -68,6 +71,7 @@ func (c *Engine) Init(systemPrompt string, budget TokenBudget) {
 	if len(historyMsgs) == 0 {
 		return
 	}
+	c.turnCount = len(historyMsgs)
 	msgs := buildHistory(historyMsgs, historyMsgs[0].ID)
 
 	for i := range msgs {
@@ -88,6 +92,7 @@ func (c *Engine) BuildRequestMessages() []shared.OpenAIMessage {
 }
 
 func (c *Engine) StartTurn(userMsg shared.OpenAIMessage) TurnDraft {
+	c.currentUserMsg = userMsg
 	return TurnDraft{
 		NewMessages: []shared.OpenAIMessage{userMsg},
 	}
@@ -105,14 +110,26 @@ func (c *Engine) CommitTurn(ctx context.Context, draft TurnDraft, usage Usage) e
 		return err
 	}
 
-	err := c.memory.Update(ctx, c.userId, c.conversationId, draft.NewMessages)
+	c.turnCount++
+
+	err := c.memory.Update(ctx, c.userId, c.conversationId, draft.NewMessages, c.turnCount)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
 func (c *Engine) AbortTurn(_ TurnDraft) {
+}
+
+func (c *Engine) FlushMemory(ctx context.Context) error {
+	if multiLevelMem, ok := c.memory.(interface {
+		Flush(ctx context.Context) error
+	}); ok {
+		return multiLevelMem.Flush(ctx)
+	}
+	return nil
 }
 
 func (c *Engine) GetContextUsage() float64 {
@@ -160,9 +177,21 @@ func (c *Engine) BuildSystemPrompt() string {
 	replaceMap := make(map[string]string)
 
 	if c.memory != nil {
-		replaceMap["{memory}"] = c.memory.String(c.userId, c.conversationId)
+		replaceMap["{memory}"] = c.memory.GetShortTermMemory(c.userId, c.conversationId)
+
+		workingMessages := c.memory.GetWorkingMemory()
+		replaceMap["{working_memory}"] = c.formatWorkingMemory(workingMessages)
+
+		longTermMem, err := c.memory.GetLongTermMemory(context.Background(), c.userId, c.getCurrentUserQuery())
+		if err != nil {
+			log.Warnf("failed to get long-term memory prompt: %v", err)
+			longTermMem = ""
+		}
+		replaceMap["{long_term_memory}"] = longTermMem
 	} else {
 		replaceMap["{memory}"] = ""
+		replaceMap["{working_memory}"] = ""
+		replaceMap["{long_term_memory}"] = ""
 	}
 
 	prompt := c.systemPromptTemplate
@@ -170,6 +199,37 @@ func (c *Engine) BuildSystemPrompt() string {
 		prompt = strings.ReplaceAll(prompt, k, v)
 	}
 	return prompt
+}
+
+func (c *Engine) formatWorkingMemory(messages []shared.OpenAIMessage) string {
+	if len(messages) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString("### Conversation History\n")
+	for _, msg := range messages {
+		role := shared.GetRoleName(msg)
+		contentAny := msg.GetContent().AsAny()
+		contentStr, ok := contentAny.(*string)
+		if ok && contentStr != nil {
+			b.WriteString(role)
+			b.WriteString(": ")
+			b.WriteString(*contentStr)
+			b.WriteString("\n")
+		}
+	}
+	return b.String()
+}
+
+func (c *Engine) getCurrentUserQuery() string {
+	msg := c.currentUserMsg
+	contentAny := msg.GetContent().AsAny()
+	if contentStr, ok := contentAny.(*string); ok {
+		return *contentStr
+	}
+
+	return ""
 }
 
 func (c *Engine) Reset() {

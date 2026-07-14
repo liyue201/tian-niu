@@ -27,3 +27,28 @@ bash_tool:
   work_dir: ""
   disabled: false
   allow_dangerous: false
+
+long_term_memory:
+  enabled: false
+  vector_db:
+    host: "localhost"
+    port: 5432
+    user: "postgres"
+    password: "password"
+    database: "tianniu_memory"
+    dimension: 1536
+  embedding_service:
+    api_key: "your-embedding-api-key"
+    base_url: "https://api.example.com"
+    model: "embedding-model"
+    dimensions: 1536
+  rerank_service:
+    api_key: "your-rerank-api-key"
+    base_url: "https://api.example.com"
+    model: "rerank-model"
+  strategy:
+    quick_save_rounds: 5
+    regular_save_rounds: 10
+    force_save_rounds: 20
+    min_token_threshold: 500
+    topic_similarity_threshold: 0.7

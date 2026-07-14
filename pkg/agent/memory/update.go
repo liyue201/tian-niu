@@ -5,6 +5,8 @@ import (
 	"log"
 	"regexp"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/tianniu-ai/tianniu/pkg/agent/llm"
@@ -13,6 +15,133 @@ import (
 
 type MemoryUpdater interface {
 	Update(ctx context.Context, oldMemory MemoryContent, newMessages []shared.OpenAIMessage) (MemoryContent, error)
+	Flush(ctx context.Context, oldMemory MemoryContent) (MemoryContent, error)
+}
+
+type SmartMemoryUpdater struct {
+	llmUpdater        *LLMMemoryUpdater
+	batchSize         int
+	maxBatchSize      int
+	minUpdateInterval time.Duration
+	messageBuffer     []shared.OpenAIMessage
+	lastUpdateTime    time.Time
+	bufferMutex       sync.Mutex
+	updateMutex       sync.Mutex
+}
+
+func NewSmartMemoryUpdater(modelConf shared.ModelConfig) *SmartMemoryUpdater {
+	return &SmartMemoryUpdater{
+		llmUpdater:        NewLLMMemoryUpdater(modelConf),
+		batchSize:         3,
+		maxBatchSize:      10,
+		minUpdateInterval: 60 * time.Second,
+		lastUpdateTime:    time.Now(),
+	}
+}
+
+func (u *SmartMemoryUpdater) Update(ctx context.Context, oldMemory MemoryContent, newMessages []shared.OpenAIMessage) (MemoryContent, error) {
+	if len(newMessages) == 0 {
+		return oldMemory, nil
+	}
+
+	filteredMessages := u.filterTrivialMessages(newMessages)
+	if len(filteredMessages) == 0 {
+		return oldMemory, nil
+	}
+
+	u.bufferMutex.Lock()
+	u.messageBuffer = append(u.messageBuffer, filteredMessages...)
+
+	shouldUpdate := u.shouldTriggerUpdate()
+
+	if shouldUpdate {
+		messagesToProcess := u.messageBuffer
+		u.messageBuffer = nil
+		u.bufferMutex.Unlock()
+
+		return u.processBatch(ctx, oldMemory, messagesToProcess)
+	}
+
+	u.bufferMutex.Unlock()
+
+	return oldMemory, nil
+}
+
+func (u *SmartMemoryUpdater) Flush(ctx context.Context, oldMemory MemoryContent) (MemoryContent, error) {
+	u.bufferMutex.Lock()
+	messages := u.messageBuffer
+	u.messageBuffer = nil
+	u.bufferMutex.Unlock()
+
+	if len(messages) == 0 {
+		return oldMemory, nil
+	}
+
+	return u.processBatch(ctx, oldMemory, messages)
+}
+
+func (u *SmartMemoryUpdater) filterTrivialMessages(messages []shared.OpenAIMessage) []shared.OpenAIMessage {
+	trivialKeywords := []string{"你好", "嗨", "谢谢", "再见", "好的", "知道了", "嗯", "哦", "啊"}
+	var filtered []shared.OpenAIMessage
+
+	for _, msg := range messages {
+		contentAny := msg.GetContent().AsAny()
+		contentStr, ok := contentAny.(*string)
+		if !ok {
+			continue
+		}
+
+		content := strings.ToLower(*contentStr)
+
+		if len(content) < 10 {
+			isTrivial := false
+			for _, keyword := range trivialKeywords {
+				if strings.Contains(content, keyword) {
+					isTrivial = true
+					break
+				}
+			}
+			if isTrivial {
+				continue
+			}
+		}
+
+		filtered = append(filtered, msg)
+	}
+
+	return filtered
+}
+
+func (u *SmartMemoryUpdater) shouldTriggerUpdate() bool {
+	if len(u.messageBuffer) >= u.batchSize {
+		return true
+	}
+
+	if len(u.messageBuffer) >= u.maxBatchSize {
+		return true
+	}
+
+	u.updateMutex.Lock()
+	defer u.updateMutex.Unlock()
+
+	if time.Since(u.lastUpdateTime) >= u.minUpdateInterval && len(u.messageBuffer) > 0 {
+		return true
+	}
+
+	return false
+}
+
+func (u *SmartMemoryUpdater) processBatch(ctx context.Context, oldMemory MemoryContent, messages []shared.OpenAIMessage) (MemoryContent, error) {
+	result, err := u.llmUpdater.Update(ctx, oldMemory, messages)
+	if err != nil {
+		return oldMemory, err
+	}
+
+	u.updateMutex.Lock()
+	u.lastUpdateTime = time.Now()
+	u.updateMutex.Unlock()
+
+	return result, nil
 }
 
 type LLMMemoryUpdater struct {
@@ -34,7 +163,6 @@ func (u *LLMMemoryUpdater) Update(ctx context.Context, oldMemory MemoryContent, 
 
 	var b strings.Builder
 	for _, msg := range newMessages {
-
 		contentAny := msg.GetContent().AsAny()
 		contentStr, ok := contentAny.(*string)
 		if !ok {
@@ -76,9 +204,7 @@ func (u *LLMMemoryUpdater) Update(ctx context.Context, oldMemory MemoryContent, 
 	return newMemory, nil
 }
 
-// extractXMLTag 使用正则表达式从文本中提取 XML 标签的内容
 func extractXMLTag(content, tagName string) string {
-	// 匹配 <tagName>...</tagName>，支持多行内容
 	pattern := regexp.MustCompile(`<` + regexp.QuoteMeta(tagName) + `>([\s\S]*?)</` + regexp.QuoteMeta(tagName) + `>`)
 	matches := pattern.FindStringSubmatch(content)
 	if len(matches) < 2 {
@@ -87,76 +213,25 @@ func extractXMLTag(content, tagName string) string {
 	return strings.TrimSpace(matches[1])
 }
 
-const updateMemoryPrompt = `You are a memory management system for an AI coding assistant. Your task is to analyze conversation messages and update two levels of memory.
+const updateMemoryPrompt = `You are a memory management system for an AI coding assistant. Update the memory based on new messages.
 
-## Current Memory
+Current Memory:
 {current_memory}
 
-## New Messages to Process
+New Messages:
 {new_messages}
 
-## Instructions
-
-Analyze the new messages and update the two memory levels accordingly. Each memory level should be formatted in Markdown.
-
-### Global Memory (User-level)
-- User preferences, coding style, frequently used tools/libraries
-- Long-term patterns observed across conversations
-- User's background, expertise level, recurring needs
-
-### Workspace Memory (Project-level)
-- Project structure, architecture, key files
-- Build commands, test commands, deployment processes
-- Project-specific conventions, tech stack
-- Issues encountered and their solutions
-
-## Output Format
-
-Return the updated memories using XML tags. Each memory content should be a valid Markdown string:
-
+Output Format:
 <global>
-<updated global memory in Markdown format>
+[Global memory content in Markdown]
 </global>
 
 <workspace>
-<updated workspace memory in Markdown format>
+[Workspace memory content in Markdown]
 </workspace>
 
-## Guidelines
-
-1. Use Markdown formatting:
-   - Use ## for section headings within a memory level
-   - Use - for bullet points
-   - Use **bold** for emphasis
-   - Use backticks for code, commands, and file names
-
-2. Content principles:
-   - Be concise but informative
-   - Only update memory levels affected by new messages
-   - Preserve existing important information
-   - Remove outdated or superseded information
-
-3. If a memory level doesn't need updates, return it unchanged
-
-## Example
-
-Input messages:
-- User: I prefer using vim for editing and always run tests with verbose flag
-- User: Can you help me set up a Go project?
-- Assistant: Created go.mod and main.go files. Used module name "example.com/myapp"
-
-Output:
-<global>
-## User Preferences
-- **Editor**: vim
-- **Testing**: Always use verbose flag
-</global>
-
-<workspace>
-## Project Structure
-- go.mod - module: example.com/myapp
-- main.go - application entry point
-</workspace>
-
-Now process the messages and return the updated memory using XML tags with Markdown-formatted content.
-`
+Guidelines:
+- Keep content concise but informative
+- Use ## for sections, - for bullet points, **bold** for emphasis
+- Only update what's necessary
+- Preserve existing important information`
